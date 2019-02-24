@@ -11,6 +11,8 @@ class Authority():
     #   Move(self, currentPositionTensor, player, moveTensor),
     #   Winner(self, positionTensor)
     #   LegalMovesMask(self, positionTensor)
+    #   PositionTensorShape(self)
+    #   MoveTensorShape(self)
     def __init__(self):
         pass
 
@@ -128,6 +130,12 @@ class Authority():
                 if positionTensor[0, 0, row, column] != 0 or positionTensor[1, 0, row, column] != 0:
                     legalMovesMask[0, 0, row, column] = 0
         return legalMovesMask
+
+    def PositionTensorShape(self):
+        return positionTensorShape
+
+    def MoveTensorShape(self):
+        return moveTensorShape
 
 
 def main():
