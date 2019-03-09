@@ -10,9 +10,10 @@ class Authority():
     # Must implement:
     #   Move(self, currentPositionTensor, player, moveTensor),
     #   Winner(self, positionTensor)
-    #   LegalMovesMask(self, positionTensor)
+    #   LegalMovesMask(self, positionTensor, player)
     #   PositionTensorShape(self)
     #   MoveTensorShape(self)
+    #   InitialPosition(self)
     def __init__(self):
         pass
 
@@ -102,6 +103,7 @@ class Authority():
         return self.MoveWithCoordinates(currentPositionTensor, player, dropCoordinates)
 
     def Display(self, positionTensor):
+        print ("Authority.Display(): positionTensor.shape = \n{}".format(positionTensor.shape))
         if positionTensor.shape != positionTensorShape: # (C, D, H, W)
             raise ValueError("Authority.Display(): The shape of positionTensor ({}) is not (2, 1, 3, 3)".format(positionTensor.shape))
         for row in range(3):
@@ -120,7 +122,7 @@ class Authority():
             if row != 2:
                 print ('--- --- ---')
 
-    def LegalMovesMask(self, positionTensor):
+    def LegalMovesMask(self, positionTensor, player):
         if positionTensor.shape != positionTensorShape:
             raise ValueError("Authority.LegalMovesMask(): The shape of positionTensor ({}) is not {}".format(
                 positionTensor.shape, positionTensorShape))
@@ -136,6 +138,10 @@ class Authority():
 
     def MoveTensorShape(self):
         return moveTensorShape
+
+    def InitialPosition(self):
+        initialPosition = torch.zeros(positionTensorShape)
+        return initialPosition
 
 
 def main():
