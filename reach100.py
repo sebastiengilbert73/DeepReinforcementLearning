@@ -15,6 +15,7 @@ class Authority():
     #   MoveTensorShape(self)
     #   InitialPosition(self)
     #   SwapPositions(self, positionTensor, player1, player2)
+    #   PlayersList(self)
     def __init__(self):
         pass
 
@@ -96,6 +97,12 @@ class Authority():
         moveTensor = torch.zeros(moveTensorShape)
         moveTensor[0, valueAsInteger - 1, 0, 0] = 1
         return self.Move(currentPositionTensor, player, moveTensor)
+
+    def PlayersList(self):
+        playersList = []
+        playersList.append(player1Name)
+        playersList.append(player2Name)
+        return playersList
 
 def main():
     print ("reach100.py main()")

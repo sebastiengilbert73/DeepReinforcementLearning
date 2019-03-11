@@ -3,6 +3,8 @@ import ast
 import torch
 import math
 import random
+import sys
+import statistics
 
 
 class NeuralNetwork(torch.nn.Module):
@@ -142,7 +144,7 @@ def NormalizeProbabilities(moveProbabilitiesTensor, legalMovesMask, preApplySoft
             legalProbabilitiesValues.append(moveProbabilitiesVector[index])
 
     if preApplySoftMax:
-        legalProbabilitiesVector = torch.softmax(torch.Tensor(legalProbabilitiesValues), 0)
+        legalProbabilitiesVector = torch.softmax(torch.Tensor(legalProbabilitiesValues)/softMaxTemperature, 0)
         runningNdx = 0
         for index in range(moveProbabilitiesVector.shape[0]):
             if legalMovesVector[index] == 0:
@@ -212,9 +214,9 @@ def SimulateGameAndGetReward(playerList, positionTensor, nextPlayer, authority, 
     if winner == playerList[0]:
         return 1.0
     elif winner == 'draw':
-        return 0.5
+        return 0.0
     else:
-        return 0
+        return -1.0
 
 def ProbabilitiesAndValueThroughSelfPlay(playerList,
                                          authority,
@@ -222,7 +224,8 @@ def ProbabilitiesAndValueThroughSelfPlay(playerList,
                                          startingPositionTensor,
                                          numberOfGamesForEvaluation,
                                          preApplySoftMax,
-                                         softMaxTemperature
+                                         softMaxTemperature,
+                                         numberOfStandardDeviationsBelowAverageForValueEstimate
                                          ):
     legalMovesMask = authority.LegalMovesMask(startingPositionTensor, playerList[0])
     moveTensorShape = authority.MoveTensorShape()
@@ -236,29 +239,40 @@ def ProbabilitiesAndValueThroughSelfPlay(playerList,
         positionAfterFirstMoveTensor, winner = authority.Move(startingPositionTensor, playerList[0],
                                                               firstMoveTensor)
         if winner == playerList[0]:
-            averageReward = 1.0
+            #averageReward = 1.0
+            valueEstimate = 1.0
         elif winner == playerList[1]:
-            averageReward = 0.0
+            #averageReward = -1.0
+            valueEstimate = -1.0
         elif winner == 'draw':
-            averageReward = 0.5
+            #averageReward = 0.0
+            valueEstimate = 0.0
         else:
-            rewardSum = 0
+            #rewardSum = 0
+            #minimumReward = sys.float_info.max
+            rewardsList = []
             for evaluationGameNdx in range(numberOfGamesForEvaluation):
                 reward = SimulateGameAndGetReward(playerList, positionAfterFirstMoveTensor,
                                                   playerList[1], authority, neuralNetwork,
                                                   preApplySoftMax=True, # Helps favor diversity of play while learning
                                                   softMaxTemperature=1.0)
-                rewardSum += reward
-            averageReward = rewardSum / numberOfGamesForEvaluation
-        # print ("averageReward = {}".format(averageReward))
+                #rewardSum += reward
+                #if reward < minimumReward:
+                #    minimumReward = reward
+                rewardsList.append(reward)
+            #averageReward = rewardSum / numberOfGamesForEvaluation
+            # print ("averageReward = {}".format(averageReward))
+            averageReward = statistics.mean(rewardsList)
+            rewardStdDev = statistics.stdev(rewardsList)
+            valueEstimate = averageReward - numberOfStandardDeviationsBelowAverageForValueEstimate * rewardStdDev
         # Set the value of each move
-        movesValueTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = averageReward
+        movesValueTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = valueEstimate
     # Calculate the initial position value: weighted average of the value moves
     movesProbabilitiesTensor = NormalizeProbabilities(movesValueTensor,
                                                              legalMovesMask,
                                                              preApplySoftMax=preApplySoftMax,
                                                              softMaxTemperature=softMaxTemperature)
-    valueWeightedSum = 0
+    """valueWeightedSum = 0
     for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
         nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
         moveValue = movesValueTensor[
@@ -266,8 +280,16 @@ def ProbabilitiesAndValueThroughSelfPlay(playerList,
         moveProbability = movesProbabilitiesTensor[
             nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
         valueWeightedSum += moveProbability * moveValue
+    """
+    maxValue = sys.float_info.min
+    for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
+        nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+        moveValue = movesValueTensor[
+            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
+        if moveValue > maxValue:
+            maxValue = moveValue
 
-    return (movesProbabilitiesTensor, valueWeightedSum)
+    return (movesProbabilitiesTensor, maxValue)
 
 def GeneratePositionToMoveProbabilityAndValueDic(playerList,
                                                  authority,
@@ -276,6 +298,7 @@ def GeneratePositionToMoveProbabilityAndValueDic(playerList,
                                                  maximumNumberOfMovesForInitialPositions,
                                                  numberOfInitialPositions,
                                                  numberOfGamesForEvaluation,
+                                                 numberOfStandardDeviationsBelowAverageForValueEstimate
                                                  ):
     # Create initial positions
     initialPositions = []
@@ -320,8 +343,9 @@ def GeneratePositionToMoveProbabilityAndValueDic(playerList,
                                                  neuralNetwork,
                                                  initialPosition,
                                                  numberOfGamesForEvaluation,
-                                                 preApplySoftMax=False, # The values are non-negative: don't apply softmax
-                                                 softMaxTemperature=0)
+                                                 True,
+                                                 1.0,
+                                                 numberOfStandardDeviationsBelowAverageForValueEstimate)
 
     return positionToMoveProbabilitiesAndValueDic
 
