@@ -1,5 +1,6 @@
 import torch
-
+import numpy
+import policy
 
 
 class Authority():
@@ -37,8 +38,10 @@ class Authority():
         if newSum > self.target:
             raise ValueError("Authority.Move(): The current sum is {} and the played value is {}. The sum can't exceed {}".format(currentSum, playedValue, self.target))
 
-        newPositionTensor = torch.zeros(self.positionTensorShape)
-        newPositionTensor[0, newSum, 0, 0] = 1
+        #newPositionTensor = torch.zeros(self.positionTensorShape)
+        newPositionArr = numpy.zeros(self.positionTensorShape)#, dtype=numpy.float64)
+        newPositionArr[0, newSum, 0, 0] = 1
+        newPositionTensor = torch.from_numpy(newPositionArr).float()
         return newPositionTensor, self.Winner(newPositionTensor, lastPlayerWhoPlayed=player)
 
     def CurrentSum(self, currentPositionTensor):
@@ -51,9 +54,10 @@ class Authority():
     def SetSum(self, sum):
         if sum < 0 or sum > self.target:
             raise ValueError("Authority.SetSum(): The sum ({}) is out of the range [0, {}]".format(sum, self.target))
-        positionTensor = torch.zeros(self.positionTensorShape)
-        positionTensor[0, sum, 0, 0] = 1
-        return positionTensor
+        #positionTensor = torch.zeros(self.positionTensorShape)
+        positionArr = numpy.zeros(self.positionTensorShape)#, dtype=numpy.float64)
+        positionArr[0, sum, 0, 0] = 1
+        return torch.from_numpy(positionArr).float()
 
     def PlayedValue(self, moveTensor):
         playedValue = 0
@@ -69,11 +73,12 @@ class Authority():
 
     def LegalMovesMask(self, positionTensor, player):
         currentSum = self.CurrentSum(positionTensor)
-        legalMovesMask = torch.zeros(self.moveTensorShape).byte()
+        #legalMovesMask = torch.zeros(self.moveTensorShape).byte()
+        legalMovesMask = numpy.zeros(self.moveTensorShape)#, dtype=uint8)
         for moveNdx in range(self.moveTensorShape[1]):
-            if currentSum + moveNdx + 1 <= 100:
+            if currentSum + moveNdx + 1 <= self.target:
                 legalMovesMask[0, moveNdx, 0, 0] = 1
-        return legalMovesMask
+        return torch.from_numpy(legalMovesMask).float()
 
     def PositionTensorShape(self):
         return self.positionTensorShape
@@ -82,9 +87,10 @@ class Authority():
         return self.moveTensorShape
 
     def InitialPosition(self):
-        initialPositionTensor = torch.zeros(self.positionTensorShape)
-        initialPositionTensor[0, 0, 0, 0] = 1
-        return initialPositionTensor
+        #initialPositionTensor = torch.zeros(self.positionTensorShape)
+        initialPositionArr = numpy.zeros(self.positionTensorShape)#, dtype=numpy.float64)
+        initialPositionArr[0, 0, 0, 0] = 1
+        return torch.from_numpy(initialPositionArr).float()
 
     def SwapPositions(self, positionTensor, player1, player2):
         # Nothing to do
@@ -93,9 +99,10 @@ class Authority():
     def MoveWithInteger(self, currentPositionTensor, player, valueAsInteger):
         if valueAsInteger < 1 or valueAsInteger > self.maximumPlayedValue:
             raise ValueError("Authority.MoveWithInteger(): The value ({}) is out if the range [1, 10]".format(valueAsInteger))
-        moveTensor = torch.zeros(self.moveTensorShape)
-        moveTensor[0, valueAsInteger - 1, 0, 0] = 1
-        return self.Move(currentPositionTensor, player, moveTensor)
+        #moveTensor = torch.zeros(self.moveTensorShape)
+        moveArr = numpy.zeros(self.moveTensorShape)#, dtype=numpy.float64)
+        moveArr[0, valueAsInteger - 1, 0, 0] = 1
+        return self.Move(currentPositionTensor, player, torch.from_numpy(moveArr).float())
 
     def PlayersList(self):
         playersList = []
@@ -112,14 +119,46 @@ class Authority():
 def main():
     print ("reachX.py main()")
 
-    maximumPlayedValue = 10
-    target = 12
+    maximumPlayedValue = 2
+    target = 4
     authority = Authority(target, maximumPlayedValue)
 
-    positionTensorShape = authority.PositionTensorShape()
+    neuralNetwork = policy.NeuralNetwork(authority.PositionTensorShape(),
+                                         '[(7, 1, 1, 32), (7, 1, 1, 30)]',
+                                         authority.MoveTensorShape())
+    neuralNetwork.load_state_dict(torch.load("/home/sebastien/projects/DeepReinforcementLearning/neuralNet_1000.pth", map_location=lambda storage, location: storage))
+
+    for sum in range(target):
+        positionTensor = authority.SetSum(sum)
+        probabilitiesTensor, value = neuralNetwork(positionTensor.unsqueeze(0))
+        print ("Sum = {}; ".format(sum), end='', flush=True)
+        for playedValue in range(maximumPlayedValue):
+            print ("{}\t".format(probabilitiesTensor[0, 0, playedValue, 0, 0]), end='', flush=True)
+        print("\t{}".format(value.item()))
+        """print ("*** Sum = {} ***".format(sum))
+        print ("probabilitiesTensor = \n{}".format(probabilitiesTensor))
+        print ("value = {}".format(value))
+        """
+
+    """positionTensorShape = authority.PositionTensorShape()
     moveTensorShape = authority.MoveTensorShape()
     playersList = authority.PlayersList()
 
+    testPosition = authority.SetSum(1)
+    probabilitiesTensor, value = policy.ProbabilitiesAndValueThroughSelfPlay(
+        playersList,
+        authority,
+        None, # Do random moves
+        testPosition,
+        numberOfGamesForEvaluation=10,
+        preApplySoftMax=True,
+        softMaxTemperature=0.1,
+        numberOfStandardDeviationsBelowAverageForValueEstimate=0.0
+    )
+    print ("main(): probabilitiesTensor =\n{}".format(probabilitiesTensor))
+    print ("main(): value = {}".format(value))
+    """
+"""
     position = authority.InitialPosition()
     moveNdx = 0
     winner = None
@@ -137,7 +176,7 @@ def main():
 
 
     print ("winner = {}".format(winner))
-
+"""
 
 if __name__ == '__main__':
     main()
