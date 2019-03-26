@@ -95,14 +95,14 @@ def SoftMaxTemperature(averageTrainingLoss,
 
 def main():
 
-    print ("learnReach100.py main()")
+    print ("learnReachX.py main()")
 
     authority = reachX.Authority(args.targetValue, args.maximumPlayedValue)
     positionTensorShape = authority.PositionTensorShape()
     moveTensorShape = authority.MoveTensorShape()
 
     neuralNetwork = policy.NeuralNetwork(positionTensorShape,
-                                         '[(7, 1, 1, 32), (7, 1, 1, 30)]',
+                                         '[(15, 1, 1, 16), (15, 1, 1, 16), (15, 1, 1, 16)]',
                                          moveTensorShape)
 
 
@@ -142,13 +142,14 @@ def main():
             args.maximumNumberOfMovesForInitialPositions,
             args.numberOfInitialPositions,
             args.numberOfGamesForEvaluation,
-            args.numberOfStandardDeviationsBelowAverageForValueEstimate,
             softMaxTemperatureForSelfPlayEvaluation
         )
+
+        #print ("main(): len(positionToMoveProbabilitiesAndValueDic) = {}".format(len(positionToMoveProbabilitiesAndValueDic)))
         positionsList = list(positionToMoveProbabilitiesAndValueDic.keys())
 
         trainingLossSum = 0.0
-        minibatchIndicesList = policy.MinibatchIndices(args.numberOfInitialPositions, args.minibatchSize)
+        minibatchIndicesList = policy.MinibatchIndices(len(positionsList), args.minibatchSize)
 
         for minibatchNdx in range(len(minibatchIndicesList)):
             print('.', end='', flush=True)
@@ -161,7 +162,9 @@ def main():
                     positionToMoveProbabilitiesAndValueDic[positionsList[index]]
                 minibatchTargetMoveProbabilities.append(minibatchMoveProbabilities)
                 minibatchTargetValues.append(value)
-
+                #if authority.CurrentSum(positionsList[index]) == 1:
+                #print ("main(): sum = {}; value = {}".format(authority.CurrentSum(positionsList[index]), value))
+                #print ("main(): minibatchMoveProbabilities = \n{}".format(minibatchMoveProbabilities))
             minibatchPositionsTensor = policy.MinibatchTensor(minibatchPositions)
             minibatchTargetMoveProbabilitiesTensor = policy.MinibatchTensor(minibatchTargetMoveProbabilities)
             minibatchTargetValuesTensor = policy.MinibatchValuesTensor(minibatchTargetValues)
@@ -176,7 +179,7 @@ def main():
             #print ("minibatchTargetMoveProbabilitiesTensor.shape = {}".format(minibatchTargetMoveProbabilitiesTensor.shape))
             #print ("outputValuesTensor.shape = {}".format(outputValuesTensor.shape))
             #print ("minibatchTargetValuesTensor.shape = {}".format(minibatchTargetValuesTensor.shape))
-            minibatchLoss = loss(outputMoveProbabilitiesTensor, minibatchTargetMoveProbabilitiesTensor) + \
+            minibatchLoss = (1 - args.weightForTheValueLoss) * loss(outputMoveProbabilitiesTensor, minibatchTargetMoveProbabilitiesTensor) + \
                 args.weightForTheValueLoss * loss(outputValuesTensor, minibatchTargetValuesTensor)
             minibatchLoss.backward()
             trainingLossSum += minibatchLoss.item()
@@ -209,7 +212,7 @@ def main():
             neuralNetwork,
             True,
             0.1,
-            100
+            300
         )
         print ("main(): averageRewardAgainstRandomPlayer = {}".format(averageRewardAgainstRandomPlayer))
 

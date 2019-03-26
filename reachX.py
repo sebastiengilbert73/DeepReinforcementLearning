@@ -119,14 +119,14 @@ class Authority():
 def main():
     print ("reachX.py main()")
 
-    maximumPlayedValue = 2
-    target = 4
+    maximumPlayedValue = 3
+    target = 16
     authority = Authority(target, maximumPlayedValue)
 
     neuralNetwork = policy.NeuralNetwork(authority.PositionTensorShape(),
-                                         '[(7, 1, 1, 32), (7, 1, 1, 30)]',
+                                         '[(15, 1, 1, 16), (15, 1, 1, 16), (15, 1, 1, 16)]',
                                          authority.MoveTensorShape())
-    neuralNetwork.load_state_dict(torch.load("/home/sebastien/projects/DeepReinforcementLearning/neuralNet_1000.pth", map_location=lambda storage, location: storage))
+    neuralNetwork.load_state_dict(torch.load("/home/sebastien/projects/DeepReinforcementLearning/neuralNet_108.pth", map_location=lambda storage, location: storage))
 
     for sum in range(target):
         positionTensor = authority.SetSum(sum)

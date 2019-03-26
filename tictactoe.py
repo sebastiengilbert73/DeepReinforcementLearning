@@ -1,25 +1,31 @@
 import torch
+import policy
 
 firstPlayer = 'X'
 secondPlayer = 'O'
-playerToPlaneIndexDic = {'X': 0, 'O': 1}
-positionTensorShape = (2, 1, 3, 3)
-moveTensorShape = (1, 1, 3, 3)
+#playerToPlaneIndexDic = {'X': 0, 'O': 1}
+#positionTensorShape = (2, 1, 3, 3)
+#moveTensorShape = (1, 1, 3, 3)
 
 class Authority():
     # Must implement:
     #   Move(self, currentPositionTensor, player, moveTensor),
-    #   Winner(self, positionTensor)
+    #   Winner(self, positionTensor, lastPlayerWhoPlayed)
     #   LegalMovesMask(self, positionTensor, player)
     #   PositionTensorShape(self)
     #   MoveTensorShape(self)
     #   InitialPosition(self)
+    #   SwapPositions(self, positionTensor, player1, player2)
+    #   PlayersList(self)
     def __init__(self):
-        pass
+        self.playersList= ['X', 'O']
+        self.positionTensorShape = (2, 1, 3, 3)
+        self.moveTensorShape = (1, 1, 3, 3)
+        self.playerToPlaneIndexDic = {'X': 0, 'O': 1}
 
 
     def ThereIs3InARow(self, planeNdx, positionTensor):
-        if positionTensor.shape != (2, 1, 3, 3): # (C, D, H, W)
+        if positionTensor.shape != self.positionTensorShape: # (C, D, H, W)
             raise ValueError("Authority.ThereIs3InARow(): The shape of positionTensor ({}) is not (2, 1, 3, 3)".format(positionTensor.shape))
         # Horizontal lines
         for row in range(3):
@@ -58,9 +64,9 @@ class Authority():
         # Otherwise
         return  False
 
-    def Winner(self, positionTensor):
-        Xwins = self.ThereIs3InARow(playerToPlaneIndexDic['X'], positionTensor)
-        Owins = self.ThereIs3InARow(playerToPlaneIndexDic['O'], positionTensor)
+    def Winner(self, positionTensor, lastPlayerWhoPlayed):
+        Xwins = self.ThereIs3InARow(self.playerToPlaneIndexDic['X'], positionTensor)
+        Owins = self.ThereIs3InARow(self.playerToPlaneIndexDic['O'], positionTensor)
         if Xwins:
             return 'X'
         if Owins:
@@ -73,7 +79,7 @@ class Authority():
                 return None
 
     def MoveWithCoordinates(self, currentPositionTensor, player, dropCoordinates):
-        if currentPositionTensor.shape != (2, 1, 3, 3): # (C, D, H, W)
+        if currentPositionTensor.shape != self.positionTensorShape: # (C, D, H, W)
             raise ValueError("Authority.MoveWithCoordinates(): The shape of currentPositionTensor ({}) is not (2, 1, 3, 3)".format(currentPositionTensor.shape))
         if player != 'X' and player != 'O':
             raise ValueError("Authority.MoveWithCoordinates(): The player must be 'X' or 'O', not '{}'".format(player))
@@ -84,12 +90,13 @@ class Authority():
         if currentPositionTensor[0, 0, dropCoordinates[0], dropCoordinates[1]] != 0 or \
                 currentPositionTensor[1, 0, dropCoordinates[0], dropCoordinates[1]] != 0:
             raise ValueError("Authority.MoveWithCoordinates(): Attempt to drop in an occupied square ({})".format(dropCoordinates))
-        currentPositionTensor[playerToPlaneIndexDic[player], 0, dropCoordinates[0], dropCoordinates[1]] = 1
-        winner = self.Winner(currentPositionTensor)
-        return currentPositionTensor, winner
+        newPositionTensor = currentPositionTensor.clone()
+        newPositionTensor[self.playerToPlaneIndexDic[player], 0, dropCoordinates[0], dropCoordinates[1]] = 1
+        winner = self.Winner(newPositionTensor, player)
+        return newPositionTensor, winner
 
     def Move(self, currentPositionTensor, player, moveTensor):
-        if moveTensor.shape != (1, 1, 3, 3):
+        if moveTensor.shape != self.moveTensorShape:
             raise ValueError("Authority.Move(): moveTensor.shape ({}) is not (1, 1, 3, 3)".format(moveTensor.shape))
         numberOfOnes = 0
         dropCoordinates = None
@@ -104,14 +111,14 @@ class Authority():
 
     def Display(self, positionTensor):
         print ("Authority.Display(): positionTensor.shape = \n{}".format(positionTensor.shape))
-        if positionTensor.shape != positionTensorShape: # (C, D, H, W)
+        if positionTensor.shape != self.positionTensorShape: # (C, D, H, W)
             raise ValueError("Authority.Display(): The shape of positionTensor ({}) is not (2, 1, 3, 3)".format(positionTensor.shape))
         for row in range(3):
             for column in range(3):
                 #occupancy = None
-                if positionTensor[playerToPlaneIndexDic['X'], 0, row, column] == 1.0:
+                if positionTensor[self.playerToPlaneIndexDic['X'], 0, row, column] == 1.0:
                     print (' X ', end='', flush=True)
-                elif positionTensor[playerToPlaneIndexDic['O'], 0, row, column] == 1.0:
+                elif positionTensor[self.playerToPlaneIndexDic['O'], 0, row, column] == 1.0:
                     print (' O ', end='', flush=True)
                 else:
                     print ('   ', end='', flush=True)
@@ -123,10 +130,10 @@ class Authority():
                 print ('--- --- ---')
 
     def LegalMovesMask(self, positionTensor, player):
-        if positionTensor.shape != positionTensorShape:
+        if positionTensor.shape != self.positionTensorShape:
             raise ValueError("Authority.LegalMovesMask(): The shape of positionTensor ({}) is not {}".format(
-                positionTensor.shape, positionTensorShape))
-        legalMovesMask = torch.zeros(moveTensorShape).byte() + 1 # Initialized with ones, i.e legal moves
+                positionTensor.shape, self.positionTensorShape))
+        legalMovesMask = torch.zeros(self.moveTensorShape).byte() + 1 # Initialized with ones, i.e legal moves
         for row in range(3):
             for column in range(3):
                 if positionTensor[0, 0, row, column] != 0 or positionTensor[1, 0, row, column] != 0:
@@ -134,19 +141,48 @@ class Authority():
         return legalMovesMask
 
     def PositionTensorShape(self):
-        return positionTensorShape
+        return self.positionTensorShape
 
     def MoveTensorShape(self):
-        return moveTensorShape
+        return self.moveTensorShape
 
     def InitialPosition(self):
-        initialPosition = torch.zeros(positionTensorShape)
+        initialPosition = torch.zeros(self.positionTensorShape)
         return initialPosition
+
+    def SwapPositions(self, positionTensor, player1, player2):
+        player1PlaneNdx = self.playerToPlaneIndexDic[player1]
+        player2PlaneNdx = self.playerToPlaneIndexDic[player2]
+        swappedPosition = positionTensor.clone()
+        swappedPosition[player1PlaneNdx] = positionTensor[player2PlaneNdx]
+        swappedPosition[player2PlaneNdx] = positionTensor[player1PlaneNdx]
+        return swappedPosition
+
+    def PlayersList(self):
+        return self.playersList
 
 
 def main():
     print ("tic-tac-toe.py main()")
-    positionTensor = torch.zeros((2, 1, 3, 3))
+
+    ticTacToeAuthority = Authority()
+    positionTensorShape = ticTacToeAuthority.PositionTensorShape()
+    moveTensorShape = ticTacToeAuthority.MoveTensorShape()
+    playersList = ticTacToeAuthority.PlayersList()
+
+    positionsToProbabilitiesAndValuesDic = policy.GeneratePositionToMoveProbabilityAndValueDic(
+                                                 playersList,
+                                                 ticTacToeAuthority,
+                                                 None, #neuralNetwork,
+                                                 1.0, #proportionOfRandomInitialPositions,
+                                                 5, #maximumNumberOfMovesForInitialPositions,
+                                                 1, #numberOfInitialPositions,
+                                                 1, #numberOfGamesForEvaluation,
+                                                 #numberOfStandardDeviationsBelowAverageForValueEstimate,
+                                                 1.0 #softMaxTemperatureForSelfPlayEvaluation
+                                                 )
+
+    """positionTensor = torch.zeros(positionTensorShape)
     #positionTensor[0, 0, 1, 1] = 1
     positionTensor[0, 0, 0, 1] = 1
     positionTensor[0, 0, 2, 0] = 1
@@ -156,16 +192,16 @@ def main():
     positionTensor[1, 0, 0, 0] = 1
     positionTensor[1, 0, 1, 2] = 1
     positionTensor[1, 0, 1, 1] = 1
-    #positionTensor[0, 0, 1, 0] = 1
-    ticTacToeAuthority = Authority()
+    positionTensor[1, 0, 1, 0] = 1
+
     ticTacToeAuthority.Display(positionTensor)
 
-    winner = ticTacToeAuthority.Winner(positionTensor)
+    winner = ticTacToeAuthority.Winner(positionTensor, playersList[1])
     print ("Winner: {}".format(winner))
 
-    legalMovesMask = ticTacToeAuthority.LegalMovesMask(positionTensor)
+    legalMovesMask = ticTacToeAuthority.LegalMovesMask(positionTensor, playersList[0])
     print ("legalMovesMask = {}".format(legalMovesMask))
-
+    """
 
 if __name__ == '__main__':
     main()
