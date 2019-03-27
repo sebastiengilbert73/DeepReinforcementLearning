@@ -67,7 +67,7 @@ def main():
     # Output monitoring file
     epochLossFile = open(os.path.join(args.outputDirectory, 'epochLoss.csv'), "w",
                          buffering=1)  # Flush the buffer at each line
-    epochLossFile.write("epoch,averageTrainingLoss,averageRewardAgainstRandomPlayer\n")
+    epochLossFile.write("epoch,averageProbTrainingLoss,averageValueTrainingLoss,averageRewardAgainstRandomPlayer\n")
 
     #bestValidationLoss = sys.float_info.max
     softMaxTemperatureForSelfPlayEvaluation = args.softMaxTemperatureForSelfPlayEvaluation
@@ -97,7 +97,8 @@ def main():
         #print ("main(): len(positionToMoveProbabilitiesAndValueDic) = {}".format(len(positionToMoveProbabilitiesAndValueDic)))
         positionsList = list(positionToMoveProbabilitiesAndValueDic.keys())
 
-        trainingLossSum = 0.0
+        trainingProbLossSum = 0.0
+        trainingValueLossSum = 0.0
         minibatchIndicesList = policy.MinibatchIndices(len(positionsList), args.minibatchSize)
 
         for minibatchNdx in range(len(minibatchIndicesList)):
@@ -128,19 +129,24 @@ def main():
             #print ("minibatchTargetMoveProbabilitiesTensor.shape = {}".format(minibatchTargetMoveProbabilitiesTensor.shape))
             #print ("outputValuesTensor.shape = {}".format(outputValuesTensor.shape))
             #print ("minibatchTargetValuesTensor.shape = {}".format(minibatchTargetValuesTensor.shape))
-            minibatchLoss = (1 - args.weightForTheValueLoss) * loss(outputMoveProbabilitiesTensor, minibatchTargetMoveProbabilitiesTensor) + \
-                args.weightForTheValueLoss * loss(outputValuesTensor, minibatchTargetValuesTensor)
+            probLoss = (1 - args.weightForTheValueLoss) * loss(outputMoveProbabilitiesTensor, minibatchTargetMoveProbabilitiesTensor)
+            valueLoss = args.weightForTheValueLoss * loss(outputValuesTensor, minibatchTargetValuesTensor)
+            minibatchLoss = probLoss + valueLoss
             minibatchLoss.backward()
-            trainingLossSum += minibatchLoss.item()
+            #trainingLossSum += minibatchLoss.item()
+            trainingProbLossSum += probLoss.item()
+            trainingValueLossSum += valueLoss.item()
+
 
             # Move in the gradient descent direction
             optimizer.step()
 
-        averageTrainingLoss = trainingLossSum / len(minibatchIndicesList)
-        print("\nEpoch {}: averageTrainingLoss = {}".format(epoch, averageTrainingLoss))
+        averageProbTrainingLoss = trainingProbLossSum / len(minibatchIndicesList)
+        averageValueTrainingLoss = trainingValueLossSum / len(minibatchIndicesList)
+        print("\nEpoch {}: averageProbTrainingLoss = {}; averageValueTrainingLoss = {}".format(epoch, averageProbTrainingLoss, averageValueTrainingLoss))
 
         if averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic is not None:
-            softMaxTemperatureForSelfPlayEvaluation = SoftMaxTemperature(averageTrainingLoss,
+            softMaxTemperatureForSelfPlayEvaluation = SoftMaxTemperature(averageProbTrainingLoss + averageValueTrainingLoss,
                                                                          averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic,
                                                                          args.softMaxTemperatureForSelfPlayEvaluation)
 
@@ -152,7 +158,7 @@ def main():
         # Save the neural network
         #if validationLoss < bestValidationLoss:
         #    bestValidationLoss = validationLoss
-        modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_" + str(epoch) + '.pth')
+        modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_tictactoe_" + str(epoch) + '.pth')
         torch.save(neuralNetwork.state_dict(), modelParametersFilename)
 
         averageRewardAgainstRandomPlayer = policy.AverageRewardAgainstARandomPlayer(
@@ -165,7 +171,7 @@ def main():
         )
         print ("main(): averageRewardAgainstRandomPlayer = {}".format(averageRewardAgainstRandomPlayer))
 
-        epochLossFile.write(str(epoch) + ',' + str(averageTrainingLoss) + ',' + str(averageRewardAgainstRandomPlayer) + '\n')
+        epochLossFile.write(str(epoch) + ',' + str(averageProbTrainingLoss) + ',' + str(averageValueTrainingLoss) + ',' + str(averageRewardAgainstRandomPlayer) + '\n')
 
 
 if __name__ == '__main__':

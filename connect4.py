@@ -68,4 +68,3 @@ class Authority():
         # Otherwise
         return False
 
-    
