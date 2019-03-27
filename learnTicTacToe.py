@@ -67,7 +67,7 @@ def main():
     # Output monitoring file
     epochLossFile = open(os.path.join(args.outputDirectory, 'epochLoss.csv'), "w",
                          buffering=1)  # Flush the buffer at each line
-    epochLossFile.write("epoch,averageProbTrainingLoss,averageValueTrainingLoss,averageRewardAgainstRandomPlayer\n")
+    epochLossFile.write("epoch,averageProbTrainingLoss,averageValueTrainingLoss,averageRewardAgainstRandomPlayer,winRate,drawRate,lossRate\n")
 
     #bestValidationLoss = sys.float_info.max
     softMaxTemperatureForSelfPlayEvaluation = args.softMaxTemperatureForSelfPlayEvaluation
@@ -161,7 +161,8 @@ def main():
         modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_tictactoe_" + str(epoch) + '.pth')
         torch.save(neuralNetwork.state_dict(), modelParametersFilename)
 
-        averageRewardAgainstRandomPlayer = policy.AverageRewardAgainstARandomPlayer(
+        (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate) = \
+            policy.AverageRewardAgainstARandomPlayer(
             playerList,
             authority,
             neuralNetwork,
@@ -169,9 +170,10 @@ def main():
             0.1,
             300
         )
-        print ("main(): averageRewardAgainstRandomPlayer = {}".format(averageRewardAgainstRandomPlayer))
+        print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
+            averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
 
-        epochLossFile.write(str(epoch) + ',' + str(averageProbTrainingLoss) + ',' + str(averageValueTrainingLoss) + ',' + str(averageRewardAgainstRandomPlayer) + '\n')
+        epochLossFile.write(str(epoch) + ',' + str(averageProbTrainingLoss) + ',' + str(averageValueTrainingLoss) + ',' + str(averageRewardAgainstRandomPlayer) + ',' + str(winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
 
 
 if __name__ == '__main__':

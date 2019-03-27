@@ -590,6 +590,9 @@ def AverageRewardAgainstARandomPlayer(
                              softMaxTemperature,
                              numberOfGames):
     rewardSum = 0
+    numberOfWins = 0
+    numberOfDraws = 0
+    numberOfLosses = 0
     for gameNdx in range(numberOfGames):
         firstPlayer = playerList[gameNdx % 2]
         if firstPlayer == playerList[0]:
@@ -597,10 +600,11 @@ def AverageRewardAgainstARandomPlayer(
         else:
             moveNdx = 1
         positionTensor = authority.InitialPosition()
+        #authority.Display(positionTensor)
         winner = None
         while winner is None:
             player = playerList[moveNdx % 2]
-            if player == playerList[1]:
+            if player == playerList[1] or neuralNetwork is None:
                 chosenMoveTensor = ChooseARandomMove(positionTensor, player, authority)
             else:
                 chosenMoveTensor = neuralNetwork.ChooseAMove(
@@ -612,16 +616,22 @@ def AverageRewardAgainstARandomPlayer(
                 )
             # print ("chosenMoveTensor =\n{}".format(chosenMoveTensor))
             positionTensor, winner = authority.Move(positionTensor, player, chosenMoveTensor)
+            #authority.Display(positionTensor)
+            #print ("policy.AverageRewardAgainstARandomPlayer() winner = {}".format(winner))
             moveNdx += 1
-            positionTensor = authority.SwapPositions(positionTensor, playerList[0], playerList[1])
+            #positionTensor = authority.SwapPositions(positionTensor, playerList[0], playerList[1])
         if winner == playerList[0]:
             rewardSum += 1.0
+            numberOfWins += 1
         elif winner == 'draw':
             rewardSum += 0.0
+            numberOfDraws += 1
         else:
             rewardSum += -1.0
+            numberOfLosses += 1
 
-    return rewardSum / numberOfGames
+    return (rewardSum / numberOfGames, numberOfWins / numberOfGames, numberOfDraws / numberOfGames,
+        numberOfLosses / numberOfGames)
 
 
 

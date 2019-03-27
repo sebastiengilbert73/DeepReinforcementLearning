@@ -170,7 +170,7 @@ def main():
     moveTensorShape = ticTacToeAuthority.MoveTensorShape()
     playersList = ticTacToeAuthority.PlayersList()
 
-    positionsToProbabilitiesAndValuesDic = policy.GeneratePositionToMoveProbabilityAndValueDic(
+    """positionsToProbabilitiesAndValuesDic = policy.GeneratePositionToMoveProbabilityAndValueDic(
                                                  playersList,
                                                  ticTacToeAuthority,
                                                  None, #neuralNetwork,
@@ -181,7 +181,16 @@ def main():
                                                  #numberOfStandardDeviationsBelowAverageForValueEstimate,
                                                  1.0 #softMaxTemperatureForSelfPlayEvaluation
                                                  )
-
+    print ("positionsToProbabilitiesAndValuesDic = \n{}".format(positionsToProbabilitiesAndValuesDic))
+    """
+    (a, b, c, d) = policy.AverageRewardAgainstARandomPlayer(
+        playersList,
+        ticTacToeAuthority,
+        None,
+        True,
+        1.0,
+        2
+    )
     """positionTensor = torch.zeros(positionTensorShape)
     #positionTensor[0, 0, 1, 1] = 1
     positionTensor[0, 0, 0, 1] = 1
