@@ -165,52 +165,44 @@ class Authority():
 def main():
     print ("tic-tac-toe.py main()")
 
-    ticTacToeAuthority = Authority()
-    positionTensorShape = ticTacToeAuthority.PositionTensorShape()
-    moveTensorShape = ticTacToeAuthority.MoveTensorShape()
-    playersList = ticTacToeAuthority.PlayersList()
-
-    """positionsToProbabilitiesAndValuesDic = policy.GeneratePositionToMoveProbabilityAndValueDic(
-                                                 playersList,
-                                                 ticTacToeAuthority,
-                                                 None, #neuralNetwork,
-                                                 1.0, #proportionOfRandomInitialPositions,
-                                                 5, #maximumNumberOfMovesForInitialPositions,
-                                                 1, #numberOfInitialPositions,
-                                                 1, #numberOfGamesForEvaluation,
-                                                 #numberOfStandardDeviationsBelowAverageForValueEstimate,
-                                                 1.0 #softMaxTemperatureForSelfPlayEvaluation
-                                                 )
-    print ("positionsToProbabilitiesAndValuesDic = \n{}".format(positionsToProbabilitiesAndValuesDic))
+    authority = Authority()
+    positionTensorShape = authority.PositionTensorShape()
+    moveTensorShape = authority.MoveTensorShape()
+    playersList = authority.PlayersList()
+    initialPosition = authority.InitialPosition()
+    neuralNetwork = policy.NeuralNetwork(positionTensorShape,
+                                         '[(3, 32), (3, 32)]',
+                                         moveTensorShape)
     """
-    (a, b, c, d) = policy.AverageRewardAgainstARandomPlayer(
-        playersList,
-        ticTacToeAuthority,
-        None,
-        True,
-        1.0,
-        2
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 1))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 2))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 0))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 1))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (2, 0))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 1))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 2))
+
+    positionProbValues = policy.IntermediateStatesProbabilitiesAndValue(
+                playersList,
+                authority,
+                neuralNetwork,
+                initialPosition,
+                1,
+                1.0
+            )
+    print ("positionProbValues = \n{}".format(positionProbValues))
+    """
+    positionMoveProbabilityAndValueList = policy.GeneratePositionMoveProbabilityAndValue(
+        playersList, authority, neuralNetwork,
+        proportionOfRandomInitialPositions=0,
+        maximumNumberOfMovesForInitialPositions=9,
+        numberOfInitialPositions=1,
+        numberOfGamesForEvaluation=1,
+        softMaxTemperatureForSelfPlayEvaluation=1.0
     )
-    """positionTensor = torch.zeros(positionTensorShape)
-    #positionTensor[0, 0, 1, 1] = 1
-    positionTensor[0, 0, 0, 1] = 1
-    positionTensor[0, 0, 2, 0] = 1
-    positionTensor[1, 0, 2, 1] = 1
-    positionTensor[0, 0, 0, 2] = 1
-    positionTensor[0, 0, 2, 2] = 1
-    positionTensor[1, 0, 0, 0] = 1
-    positionTensor[1, 0, 1, 2] = 1
-    positionTensor[1, 0, 1, 1] = 1
-    positionTensor[1, 0, 1, 0] = 1
-
-    ticTacToeAuthority.Display(positionTensor)
-
-    winner = ticTacToeAuthority.Winner(positionTensor, playersList[1])
-    print ("Winner: {}".format(winner))
-
-    legalMovesMask = ticTacToeAuthority.LegalMovesMask(positionTensor, playersList[0])
-    print ("legalMovesMask = {}".format(legalMovesMask))
-    """
+    print ("main(): positionMoveProbabilityAndValueList = \n{}".format(positionMoveProbabilityAndValueList))
 
 if __name__ == '__main__':
     main()

@@ -33,6 +33,28 @@ class NeuralNetwork(torch.nn.Module):
                 torch.nn.ReLU()
             )
             self.lastLayerInputNumberOfChannels = 32
+        elif ast.literal_eval(bodyStructure) == [(3, 16), (3, 16), (3, 16)]:
+            self.bodyStructure = torch.nn.Sequential(
+                torch.nn.Conv3d(in_channels=inputTensorSize[0], out_channels=16,
+                                kernel_size=3,
+                                padding=1),
+                torch.nn.BatchNorm3d(16, eps=1e-05, momentum=0.1, affine=True,
+                                     track_running_stats=True),
+                torch.nn.ReLU(),
+                torch.nn.Conv3d(in_channels=16, out_channels=16,
+                                kernel_size=3,
+                                padding=1),
+                torch.nn.BatchNorm3d(16, eps=1e-05, momentum=0.1, affine=True,
+                                     track_running_stats=True),
+                torch.nn.ReLU(),
+                torch.nn.Conv3d(in_channels=16, out_channels=16,
+                                kernel_size=3,
+                                padding=1),
+                torch.nn.BatchNorm3d(16, eps=1e-05, momentum=0.1, affine=True,
+                                     track_running_stats=True),
+                torch.nn.ReLU()
+            )
+            self.lastLayerInputNumberOfChannels = 16
         elif ast.literal_eval(bodyStructure) == [(7, 1, 1, 32), (7, 1, 1, 30)]:
             self.bodyStructure = torch.nn.Sequential(
                 torch.nn.Conv3d(in_channels=inputTensorSize[0], out_channels=32,
@@ -282,39 +304,52 @@ def SimulateGameAndGetPositionsMovesListReward(playerList,
                              neuralNetwork, # If None, do random moves
                              preApplySoftMax,
                              softMaxTemperature):
-    positionMovesList = list()
+    #print ("SimulateGameAndGetPositionsMovesListReward(): \npositionTensor = \n{}".format(positionTensor))
+    player0PositionMovesList = list()
+    player1PositionMovesList = list()
     winner = None
+    #authority.Display(positionTensor)
     if nextPlayer == playerList[0]:
         moveNdx = 0
     elif nextPlayer == playerList[1]:
         moveNdx = 1
     else:
         raise ValueError("SimulateGameAndGetPositionsMovesListReward(): Unknown player '{}'".format(nextPlayer))
+    if nextPlayer == playerList[1]:
+        positionTensor = authority.SwapPositions(positionTensor, playerList[0], playerList[1])
     while winner is None:
         player = playerList[moveNdx % 2]
+
         if neuralNetwork is None:
-            chosenMoveTensor = ChooseARandomMove(positionTensor, player, authority)
+            chosenMoveTensor = ChooseARandomMove(positionTensor, playerList[0], authority)
         else:
             chosenMoveTensor = neuralNetwork.ChooseAMove(
                 positionTensor,
-                player,
+                playerList[0],
                 authority,
                 preApplySoftMax,
                 softMaxTemperature
             )
         #print ("chosenMoveTensor =\n{}".format(chosenMoveTensor))
 
-        positionBeforeMoveTensor = positionTensor
-        positionTensor, winner = authority.Move(positionTensor, player, chosenMoveTensor)
-        positionMovesList.append( (positionBeforeMoveTensor, chosenMoveTensor) )
+        positionBeforeMoveTensor = positionTensor.clone()
+        #print ("SimulateGameAndGetPositionsMovesListReward(): positionBeforeMoveTensor = {}".format(positionBeforeMoveTensor))
+        positionTensor, winner = authority.Move(positionTensor, playerList[0], chosenMoveTensor)
+        #authority.Display(positionTensor)
+        if player == playerList[0]:
+            player0PositionMovesList.append( (positionBeforeMoveTensor, chosenMoveTensor) )
+        else:
+            player1PositionMovesList.append((positionBeforeMoveTensor, chosenMoveTensor))
+        if winner == playerList[0] and player == playerList[1]: # All moves are from the point of view of player0, hence he will always 'win'
+            winner = playerList[1]
         moveNdx += 1
         positionTensor = authority.SwapPositions(positionTensor, playerList[0], playerList[1])
     if winner == playerList[0]:
-        return (positionMovesList, 1.0)
+        return (player0PositionMovesList, 1.0), (player1PositionMovesList, -1.0)
     elif winner == 'draw':
-        return (positionMovesList, 0.0)
+        return (player0PositionMovesList, 0.0), (player1PositionMovesList, 0.0)
     else:
-        return (positionMovesList, -1.0)
+        return (player0PositionMovesList, -1.0), (player1PositionMovesList, 1.0)
 
 def ProbabilitiesAndValueThroughSelfPlay(playerList,
                                          authority,
@@ -391,7 +426,7 @@ def ProbabilitiesAndValueThroughSelfPlay(playerList,
 
     return (movesProbabilitiesTensor, maxValue)
 
-def IntermediateStatesToProbabilitiesAndValue(
+def IntermediateStatesProbabilitiesAndValue(
                 playerList,
                 authority,
                 neuralNetwork,
@@ -403,79 +438,111 @@ def IntermediateStatesToProbabilitiesAndValue(
     moveTensorShape = authority.MoveTensorShape()
 
     nonZeroCoordsTensor = torch.nonzero(legalMovesMask)
-    intermediateStateToProbabilitiesAndValueDic = {}
+    firstMoveProbabilities, startingPositionValue = neuralNetwork(startingPositionTensor.unsqueeze(0))
+    firstMoveProbabilities = firstMoveProbabilities.squeeze(0).detach() # Remove the dummy mini-batch
+    intermediateStateProbabilitiesAndValues = list()
+    #print ("IntermediateStatesProbabilitiesAndValue(): nonZeroCoordsTensor.shape = {}".format(nonZeroCoordsTensor.shape))
+    #print ("IntermediateStatesProbabilitiesAndValue(): nonZeroCoordsTensor = {}".format(nonZeroCoordsTensor))
+    #print ("IntermediateStatesProbabilitiesAndValue(): nonZeroCoordsTensor.size(0) = {}".format(nonZeroCoordsTensor.size(0)))
     for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
         nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
-
+        #print ("IntermediateStatesToProbabilitiesAndValue(): nonZeroCoords = {}".format(nonZeroCoords))
         firstMoveArr = numpy.zeros(moveTensorShape)
         firstMoveArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 1
         firstMoveTensor = torch.from_numpy(firstMoveArr).float()
         positionAfterFirstMoveTensor, winner = authority.Move(startingPositionTensor, playerList[0],
                                                               firstMoveTensor)
         if winner == playerList[0]:
-            probabilitiesArr = numpy.zeros(moveTensorShape)
-            probabilitiesArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 1.0 # Good move!
-            intermediateStateToProbabilitiesAndValueDic[positionAfterFirstMoveTensor] = (
-                torch.from_numpy(probabilitiesArr).float(), 1.0
-            )
-            intermediateStateToProbabilitiesAndValueDic[startingPositionTensor] = (
-                firstMoveTensor, 1.0
-            )
+            probabilitiesArr = numpy.zeros(moveTensorShape) - 1.0/NumberOfEntries(moveTensorShape)
+            probabilitiesArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = \
+                probabilitiesArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] + 1.0 # Good move!
+            correctedProbabilitiesTensor = firstMoveProbabilities + torch.from_numpy(probabilitiesArr).float()
+
+            intermediateStateProbabilitiesAndValues.append((startingPositionTensor.clone(), correctedProbabilitiesTensor, 1.0))
+
         elif winner == playerList[1]:
-            probabilitiesArr = numpy.zeros(moveTensorShape)
-            probabilitiesArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = -1.0  # Bad move!
-            intermediateStateToProbabilitiesAndValueDic[positionAfterFirstMoveTensor] = (
-                torch.from_numpy(probabilitiesArr).float(), -1.0
-            )
-            intermediateStateToProbabilitiesAndValueDic[startingPositionTensor] = (
-                -1.0 * firstMoveTensor, -1.0
-            )
+            probabilitiesArr = numpy.zeros(moveTensorShape) + 1.0/NumberOfEntries(moveTensorShape)
+            probabilitiesArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = \
+                probabilitiesArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] - 1.0  # Bad move!
+            correctedProbabilitiesTensor = firstMoveProbabilities + torch.from_numpy(probabilitiesArr).float()
+
+            intermediateStateProbabilitiesAndValues.append( (startingPositionTensor.clone(), \
+                correctedProbabilitiesTensor, -1.0) )
+
         elif winner == 'draw':
             # Draw game: Don't record anything (it would be zeros everywhere in the probability tensor)
-            pass
+            #probabilitiesArr = numpy.zeros(moveTensorShape)
+            #probabilitiesArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 0.0
+            """intermediateStateToProbabilitiesAndValueDic[positionAfterFirstMoveTensor] = (
+                firstMoveProbabilities, 0.0
+            )
+            """
+            intermediateStateProbabilitiesAndValues.append( (startingPositionTensor.clone(), \
+                                                             firstMoveProbabilities, 0.0) )
+
         else: # The game is not over: Let's simulate the evolution of the game
             for evaluationGameNdx in range(numberOfGamesForEvaluation):
-                (positionsMovesList, reward) = SimulateGameAndGetPositionsMovesListReward(
-                    playerList, positionAfterFirstMoveTensor,
-                    playerList[1], authority, neuralNetwork,
-                    preApplySoftMax=True,  # Helps favor diversity of play while learning
-                    softMaxTemperature=softMaxTemperatureForSelfPlayEvaluation
+                (player0PositionsMovesList, player0Reward), (player1PositionsMovesList, player1Reward) = \
+                    SimulateGameAndGetPositionsMovesListReward(
+                        playerList, positionAfterFirstMoveTensor,
+                        playerList[1], authority, neuralNetwork,
+                        preApplySoftMax=True,  # Helps favor diversity of play while learning
+                        softMaxTemperature=softMaxTemperatureForSelfPlayEvaluation
+                    )
+                player0PositionsMovesList.append((startingPositionTensor.clone(), firstMoveTensor.clone()))
+                #if reward == 1.: # The current player won; the opponent lost
+                player0CorrectionProbabilitiesArr = numpy.zeros(moveTensorShape) -1.0 * player0Reward / NumberOfEntries(moveTensorShape)
+                player0CorrectionProbabilitiesArr[
+                    nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = \
+                    player0CorrectionProbabilitiesArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] + player0Reward
+                player0CorrectionProbabilitiesTensor = torch.from_numpy(player0CorrectionProbabilitiesArr).float()
+                """correctedProbabilityTensor = aPrioriProbabilityTensor + 
+                intermediateStateToProbabilitiesAndValueDic[positionAfterFirstMoveTensor] = (
+                    torch.from_numpy(player0ProbabilitiesArr).float(), player0Reward
                 )
-                if reward == 1.: # The current player won; the opponent lost
-                    probabilitiesArr = numpy.zeros(moveTensorShape)
-                    probabilitiesArr[
-                        nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 1.0  # Good move!
-                    intermediateStateToProbabilitiesAndValueDic[positionAfterFirstMoveTensor] = (
-                        torch.from_numpy(probabilitiesArr).float(), 1.0
-                    )
-                    intermediateStateToProbabilitiesAndValueDic[startingPositionTensor] = (
-                        firstMoveTensor, 1.0
-                    )
-                    for positionNdx in range(len(positionsMovesList)):
-                        position = positionsMovesList[positionNdx][0]
-                        sign = (-1.) ** (positionNdx + 1)
-                        moveProbability = positionsMovesList[positionNdx][1] * sign # Don't do the moves the opponent did: he lost
-                        intermediateStateToProbabilitiesAndValueDic[position] = (moveProbability, sign)
-                elif reward == -1: # The current player lost; the opponent won
-                    probabilitiesArr = numpy.zeros(moveTensorShape)
-                    probabilitiesArr[
-                        nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = -1.0  # Bad move!
-                    intermediateStateToProbabilitiesAndValueDic[positionAfterFirstMoveTensor] = (
-                        torch.from_numpy(probabilitiesArr).float(), -1.0
-                    )
-                    intermediateStateToProbabilitiesAndValueDic[startingPositionTensor] = (
-                        -1.0 * firstMoveTensor, -1.0
-                    )
-                    for positionNdx in range(len(positionsMovesList)):
-                        position = positionsMovesList[positionNdx][0]
-                        sign = (-1.) ** (positionNdx)
-                        moveProbability = positionsMovesList[positionNdx][1] * sign # Do the moves the opponent did: he won
-                        intermediateStateToProbabilitiesAndValueDic[position] = (moveProbability, sign)
+                intermediateStateToProbabilitiesAndValueDic[startingPositionTensor] = (
+                    firstMoveTensor, player0Reward
+                )"""
+                for positionNdx in range(len(player0PositionsMovesList)):
+                    position = player0PositionsMovesList[positionNdx][0]
+                    aPrioriProbabilityTensor, aPrioriValue = neuralNetwork(position.unsqueeze(0))
+                    aPrioriProbabilityTensor = aPrioriProbabilityTensor.squeeze(0).detach() # Remove the dummy mini-batch
+                    chosenMove = player0PositionsMovesList[positionNdx][1]
+                    #sign = (-1.) ** (positionNdx + 1)
+                    correctedMoveProbability = aPrioriProbabilityTensor + player0CorrectionProbabilitiesTensor + \
+                        chosenMove * player0Reward
 
-    return intermediateStateToProbabilitiesAndValueDic
+                    intermediateStateProbabilitiesAndValues.append( (position.clone(), correctedMoveProbability, player0Reward) )
+                    #print ("IntermediateStatesProbabilitiesAndValue(): position = {}; correctedMoveProbability = {}; player0Reward = {}".format(position, correctedMoveProbability, player0Reward))
+                #elif reward == -1: # The current player lost; the opponent won
+                player1CorrectionProbabilitiesArr = numpy.zeros(moveTensorShape) - 1.0 * player1Reward / NumberOfEntries(moveTensorShape)
+                player1CorrectionProbabilitiesArr[
+                    nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = \
+                    player1CorrectionProbabilitiesArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] + player1Reward
+                player1CorrectionProbabilitiesTensor = torch.from_numpy(player1CorrectionProbabilitiesArr).float()
+                """intermediateStateToProbabilitiesAndValueDic[positionAfterFirstMoveTensor] = (
+                    torch.from_numpy(player1ProbabilitiesArr).float(), player1Reward
+                )
+                intermediateStateToProbabilitiesAndValueDic[startingPositionTensor] = (
+                    player1Reward * firstMoveTensor, player1Reward
+                )"""
+                for positionNdx in range(len(player1PositionsMovesList)):
+                    position = player1PositionsMovesList[positionNdx][0]
+                    aPrioriProbabilityTensor, aPrioriValue = neuralNetwork(position.unsqueeze(0))
+                    aPrioriProbabilityTensor = aPrioriProbabilityTensor.squeeze(0).detach()  # Remove the dummy mini-batch
+                    chosenMove = player1PositionsMovesList[positionNdx][1]
+                    #sign = (-1.) ** (positionNdx)
+                    correctedMoveProbability = aPrioriProbabilityTensor + player1CorrectionProbabilitiesTensor + \
+                                               chosenMove * player1Reward
+
+                    intermediateStateProbabilitiesAndValues.append( (position.clone(), correctedMoveProbability, player1Reward) )
+                    #print ("IntermediateStatesProbabilitiesAndValue(): position = {}; correctedMoveProbability = {}; player1Reward = {}".format(
+                    #        position, correctedMoveProbability, player1Reward))
+
+    return intermediateStateProbabilitiesAndValues
 
 
-def GeneratePositionToMoveProbabilityAndValueDic(playerList,
+def GeneratePositionMoveProbabilityAndValue(playerList,
                                                  authority,
                                                  neuralNetwork,
                                                  proportionOfRandomInitialPositions,
@@ -500,7 +567,7 @@ def GeneratePositionToMoveProbabilityAndValueDic(playerList,
             positionTensor, winner = authority.Move(positionTensor, player, randomMoveTensor)
             moveNdx += 1
         if winner is None:
-            initialPositions.append(positionTensor)
+            initialPositions.append(positionTensor.clone())
             createdRandomInitialPositionsNumber += 1
 
     # Complete with initial positions obtained through self-play
@@ -517,10 +584,10 @@ def GeneratePositionToMoveProbabilityAndValueDic(playerList,
             moveNdx += 1
             positionTensor = authority.SwapPositions(positionTensor, playerList[0], playerList[1])
         if winner is None:
-            initialPositions.append(positionTensor)
+            initialPositions.append(positionTensor.clone())
 
     # For each initial position, evaluate the value of each possible move through self-play
-    positionToMoveProbabilitiesAndValueDic = {}
+    positionMoveProbabilitiesAndValues = list()
     for initialPosition in initialPositions:
         """positionToMoveProbabilitiesAndValueDic[initialPosition] = \
             ProbabilitiesAndValueThroughSelfPlay(playerList,
@@ -532,8 +599,8 @@ def GeneratePositionToMoveProbabilityAndValueDic(playerList,
                                                  softMaxTemperatureForSelfPlayEvaluation,
                                                  numberOfStandardDeviationsBelowAverageForValueEstimate)
         """
-        intermediateStatesToProbabilitiesAndValueDic = \
-            IntermediateStatesToProbabilitiesAndValue(
+        intermediateStatesProbabilitiesAndValues = \
+            IntermediateStatesProbabilitiesAndValue(
                 playerList,
                 authority,
                 neuralNetwork,
@@ -541,9 +608,10 @@ def GeneratePositionToMoveProbabilityAndValueDic(playerList,
                 numberOfGamesForEvaluation,
                 softMaxTemperatureForSelfPlayEvaluation
             )
-        for intermediateState, probAndValue in intermediateStatesToProbabilitiesAndValueDic.items():
-            positionToMoveProbabilitiesAndValueDic[intermediateState] = probAndValue
-    return positionToMoveProbabilitiesAndValueDic
+        for (intermediateState, probabilities, value) in intermediateStatesProbabilitiesAndValues:
+            positionMoveProbabilitiesAndValues.append( (intermediateState, probabilities, value) )
+
+    return positionMoveProbabilitiesAndValues
 
 
 def MinibatchIndices(numberOfSamples, minibatchSize):
@@ -563,10 +631,13 @@ def MinibatchIndices(numberOfSamples, minibatchSize):
 def MinibatchTensor(positionsList):
     if len(positionsList) == 0:
         raise ArgumentException("MinibatchTensor(): Empty list of positions")
+    #print ("MinibatchTensor(): len(positionsList) = {}; positionsList[0].shape = {}".format(len(positionsList), positionsList[0].shape) )
     positionShape = positionsList[0].shape
     minibatchTensor = torch.zeros(len(positionsList), positionShape[0],
                                   positionShape[1], positionShape[2], positionShape[3]) # NCDHW
     for n in range(len(positionsList)):
+        #print ("MinibatchTensor(): positionsList[n].shape = {}".format(positionsList[n].shape))
+        #print ("MinibatchTensor(): positionsList[n] = {}".format(positionsList[n]))
         minibatchTensor[n] = positionsList[n]
     return minibatchTensor
 
@@ -633,7 +704,8 @@ def AverageRewardAgainstARandomPlayer(
     return (rewardSum / numberOfGames, numberOfWins / numberOfGames, numberOfDraws / numberOfGames,
         numberOfLosses / numberOfGames)
 
-
+def NumberOfEntries(tensorShape):
+    return tensorShape[0] * tensorShape[1] * tensorShape[2] * tensorShape[3]
 
 def main():
     print ("policy.py main()")

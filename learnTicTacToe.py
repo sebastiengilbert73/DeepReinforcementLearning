@@ -40,6 +40,11 @@ def SoftMaxTemperature(averageTrainingLoss,
     else:
         return values[foundIndex]
 
+def HasAlreadyBeenUsed(tensorToCheck, alreadyUsedTensors):
+    for existingTensor in alreadyUsedTensors:
+        if existingTensor is tensorToCheck:
+            return True
+    return False
 
 def main():
 
@@ -51,7 +56,7 @@ def main():
     playerList = authority.PlayersList()
 
     neuralNetwork = policy.NeuralNetwork(positionTensorShape,
-                                         '[(3, 32), (3, 32)]',
+                                         '[(3, 16), (3, 16), (3, 16)]',
                                          moveTensorShape)
 
 
@@ -85,7 +90,7 @@ def main():
 
         # Generate positions
         print ("Generating positions...")
-        positionToMoveProbabilitiesAndValueDic = policy.GeneratePositionToMoveProbabilityAndValueDic(
+        positionMoveProbabilityAndValueList = policy.GeneratePositionMoveProbabilityAndValue(
             playerList, authority, neuralNetwork,
             args.proportionOfRandomInitialPositions,
             args.maximumNumberOfMovesForInitialPositions,
@@ -95,26 +100,40 @@ def main():
         )
 
         #print ("main(): len(positionToMoveProbabilitiesAndValueDic) = {}".format(len(positionToMoveProbabilitiesAndValueDic)))
-        positionsList = list(positionToMoveProbabilitiesAndValueDic.keys())
+        #positionsList = list(positionToMoveProbabilitiesAndValueDic.keys())
 
         trainingProbLossSum = 0.0
         trainingValueLossSum = 0.0
-        minibatchIndicesList = policy.MinibatchIndices(len(positionsList), args.minibatchSize)
+        minibatchIndicesList = policy.MinibatchIndices(len(positionMoveProbabilityAndValueList), args.minibatchSize)
+
+
 
         for minibatchNdx in range(len(minibatchIndicesList)):
             print('.', end='', flush=True)
             minibatchPositions = []
             minibatchTargetMoveProbabilities = []
             minibatchTargetValues = []
+
+
             for index in minibatchIndicesList[minibatchNdx]:
-                minibatchPositions.append(positionsList[index])
-                (minibatchMoveProbabilities, value) = \
-                    positionToMoveProbabilitiesAndValueDic[positionsList[index]]
-                minibatchTargetMoveProbabilities.append(minibatchMoveProbabilities)
-                minibatchTargetValues.append(value)
+                #minibatchPositions.append(positionsList[index])
+                if HasAlreadyBeenUsed(positionMoveProbabilityAndValueList[index][0], minibatchPositions):
+                    print ("main(): positionMoveProbabilityAndValueList[index][0] has laready been used")
+                minibatchPositions.append(positionMoveProbabilityAndValueList[index][0])
+
+
+                #(minibatchMoveProbabilities, value) = \
+                #    (positionMoveProbabilityAndValueList[index][1], positionMoveProbabilityAndValueList[index][2])
+                    #positionToMoveProbabilitiesAndValueDic[positionsList[index]]
+                if HasAlreadyBeenUsed(positionMoveProbabilityAndValueList[index][1], minibatchTargetMoveProbabilities):
+                    print ("main(): positionMoveProbabilityAndValueList[index][1] has laready been used")
+                minibatchTargetMoveProbabilities.append(positionMoveProbabilityAndValueList[index][1])
+
+                minibatchTargetValues.append(positionMoveProbabilityAndValueList[index][2])
                 #if authority.CurrentSum(positionsList[index]) == 1:
                 #print ("main(): sum = {}; value = {}".format(authority.CurrentSum(positionsList[index]), value))
                 #print ("main(): minibatchMoveProbabilities = \n{}".format(minibatchMoveProbabilities))
+
             minibatchPositionsTensor = policy.MinibatchTensor(minibatchPositions)
             minibatchTargetMoveProbabilitiesTensor = policy.MinibatchTensor(minibatchTargetMoveProbabilities)
             minibatchTargetValuesTensor = policy.MinibatchValuesTensor(minibatchTargetValues)
@@ -131,15 +150,20 @@ def main():
             #print ("minibatchTargetValuesTensor.shape = {}".format(minibatchTargetValuesTensor.shape))
             probLoss = (1 - args.weightForTheValueLoss) * loss(outputMoveProbabilitiesTensor, minibatchTargetMoveProbabilitiesTensor)
             valueLoss = args.weightForTheValueLoss * loss(outputValuesTensor, minibatchTargetValuesTensor)
-            minibatchLoss = probLoss + valueLoss
-            minibatchLoss.backward()
-            #trainingLossSum += minibatchLoss.item()
-            trainingProbLossSum += probLoss.item()
-            trainingValueLossSum += valueLoss.item()
+            minibatchLoss = probLoss + valueLoss#(1 - args.weightForTheValueLoss) * loss(outputMoveProbabilitiesTensor, minibatchTargetMoveProbabilitiesTensor) + \
+                #args.weightForTheValueLoss * loss(outputValuesTensor, minibatchTargetValuesTensor)
+            try:
+                minibatchLoss.backward()
+                # trainingLossSum += minibatchLoss.item()
+                trainingProbLossSum += probLoss.item()
+                trainingValueLossSum += valueLoss.item()
+
+                # Move in the gradient descent direction
+                optimizer.step()
+            except:
+                print('X', end='', flush=True)
 
 
-            # Move in the gradient descent direction
-            optimizer.step()
 
         averageProbTrainingLoss = trainingProbLossSum / len(minibatchIndicesList)
         averageValueTrainingLoss = trainingValueLossSum / len(minibatchIndicesList)
