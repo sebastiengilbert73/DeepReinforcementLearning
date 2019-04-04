@@ -90,7 +90,7 @@ def main():
 
         # Generate positions
         print ("Generating positions...")
-        positionMoveProbabilityAndValueList = policy.GeneratePositionMoveProbabilityAndValue(
+        """positionMoveProbabilityAndValueList = policy.GeneratePositionMoveProbabilityAndValue(
             playerList, authority, neuralNetwork,
             args.proportionOfRandomInitialPositions,
             args.maximumNumberOfMovesForInitialPositions,
@@ -98,10 +98,22 @@ def main():
             args.numberOfGamesForEvaluation,
             softMaxTemperatureForSelfPlayEvaluation
         )
+        """
+        positionStatisticsList = policy.GenerateMoveStatistics(
+            playerList,
+            authority,
+            neuralNetwork,
+            args.proportionOfRandomInitialPositions,
+            args.maximumNumberOfMovesForInitialPositions,
+            args.numberOfInitialPositions,
+            args.numberOfGamesForEvaluation,
+            softMaxTemperatureForSelfPlayEvaluation
+        )
+        print ("positionStatisticsList = {}".format(positionStatisticsList))
 
         #print ("main(): len(positionToMoveProbabilitiesAndValueDic) = {}".format(len(positionToMoveProbabilitiesAndValueDic)))
         #positionsList = list(positionToMoveProbabilitiesAndValueDic.keys())
-
+        """
         trainingProbLossSum = 0.0
         trainingValueLossSum = 0.0
         minibatchIndicesList = policy.MinibatchIndices(len(positionMoveProbabilityAndValueList), args.minibatchSize)
@@ -198,7 +210,7 @@ def main():
             averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
 
         epochLossFile.write(str(epoch) + ',' + str(averageProbTrainingLoss) + ',' + str(averageValueTrainingLoss) + ',' + str(averageRewardAgainstRandomPlayer) + ',' + str(winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
-
+        """
 
 if __name__ == '__main__':
     main()

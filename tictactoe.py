@@ -173,36 +173,30 @@ def main():
     neuralNetwork = policy.NeuralNetwork(positionTensorShape,
                                          '[(3, 32), (3, 32)]',
                                          moveTensorShape)
-    """
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 1))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 2))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 0))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 1))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (2, 0))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 1))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 2))
 
-    positionProbValues = policy.IntermediateStatesProbabilitiesAndValue(
-                playersList,
-                authority,
-                neuralNetwork,
-                initialPosition,
-                1,
-                1.0
-            )
-    print ("positionProbValues = \n{}".format(positionProbValues))
-    """
-    positionMoveProbabilityAndValueList = policy.GeneratePositionMoveProbabilityAndValue(
-        playersList, authority, neuralNetwork,
-        proportionOfRandomInitialPositions=0,
-        maximumNumberOfMovesForInitialPositions=9,
-        numberOfInitialPositions=1,
-        numberOfGamesForEvaluation=1,
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 1))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 2))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 0))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 1))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (2, 0))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 1))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 2))
+
+    averageValuesTensor, standardDeviationTensor, legalMovesNMask = \
+        policy.PositionExpectedMoveValues(
+        playersList,
+        authority,
+        neuralNetwork,
+        initialPosition,
+        numberOfGamesForEvaluation=31,
         softMaxTemperatureForSelfPlayEvaluation=1.0
     )
-    print ("main(): positionMoveProbabilityAndValueList = \n{}".format(positionMoveProbabilityAndValueList))
+    print ("averageValuesTensor = \n{}".format(averageValuesTensor))
+    print ("standardDeviationTensor = \n{}".format(standardDeviationTensor))
+    print ("legalMovesMask = \n{}".format(legalMovesNMask))
+
 
 if __name__ == '__main__':
     main()
