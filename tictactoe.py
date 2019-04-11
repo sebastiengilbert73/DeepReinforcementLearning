@@ -176,7 +176,7 @@ def main():
 
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 1))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 2))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 2))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 0))
     initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 1))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
@@ -184,7 +184,7 @@ def main():
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 1))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 2))
 
-    averageValuesTensor, standardDeviationTensor, legalMovesNMask = \
+    """averageValuesTensor, standardDeviationTensor, legalMovesNMask = \
         policy.PositionExpectedMoveValues(
         playersList,
         authority,
@@ -196,7 +196,17 @@ def main():
     print ("averageValuesTensor = \n{}".format(averageValuesTensor))
     print ("standardDeviationTensor = \n{}".format(standardDeviationTensor))
     print ("legalMovesMask = \n{}".format(legalMovesNMask))
-
+    """
+    positionMoveStatisticsList = policy.GenerateMoveStatistics(playersList,
+                           authority,
+                           neuralNetwork,
+                           proportionOfRandomInitialPositions=0.5,
+                           maximumNumberOfMovesForInitialPositions=8,
+                           numberOfInitialPositions=2,
+                           numberOfGamesForEvaluation=11,
+                           softMaxTemperatureForSelfPlayEvaluation=1.0
+                           )
+    print ("main(): positionMoveStatisticsList = {}".format(positionMoveStatisticsList))
 
 if __name__ == '__main__':
     main()

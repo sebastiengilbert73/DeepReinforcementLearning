@@ -109,14 +109,15 @@ def main():
             args.numberOfGamesForEvaluation,
             softMaxTemperatureForSelfPlayEvaluation
         )
-        print ("positionStatisticsList = {}".format(positionStatisticsList))
+        # (initialPosition, averageValuesTensor, standardDeviationTensor, legalMovesNMask)
+        #print ("positionStatisticsList = {}".format(positionStatisticsList))
 
         #print ("main(): len(positionToMoveProbabilitiesAndValueDic) = {}".format(len(positionToMoveProbabilitiesAndValueDic)))
         #positionsList = list(positionToMoveProbabilitiesAndValueDic.keys())
-        """
+
         trainingProbLossSum = 0.0
         trainingValueLossSum = 0.0
-        minibatchIndicesList = policy.MinibatchIndices(len(positionMoveProbabilityAndValueList), args.minibatchSize)
+        minibatchIndicesList = policy.MinibatchIndices(len(positionStatisticsList), args.minibatchSize)
 
 
 
@@ -125,26 +126,39 @@ def main():
             minibatchPositions = []
             minibatchTargetMoveProbabilities = []
             minibatchTargetValues = []
-
+            minibatchLegalMovesMasks = []
 
             for index in minibatchIndicesList[minibatchNdx]:
                 #minibatchPositions.append(positionsList[index])
-                if HasAlreadyBeenUsed(positionMoveProbabilityAndValueList[index][0], minibatchPositions):
-                    print ("main(): positionMoveProbabilityAndValueList[index][0] has laready been used")
-                minibatchPositions.append(positionMoveProbabilityAndValueList[index][0])
+                #if HasAlreadyBeenUsed(positionMoveProbabilityAndValueList[index][0], minibatchPositions):
+                #    print ("main(): positionMoveProbabilityAndValueList[index][0] has laready been used")
+
 
 
                 #(minibatchMoveProbabilities, value) = \
                 #    (positionMoveProbabilityAndValueList[index][1], positionMoveProbabilityAndValueList[index][2])
                     #positionToMoveProbabilitiesAndValueDic[positionsList[index]]
-                if HasAlreadyBeenUsed(positionMoveProbabilityAndValueList[index][1], minibatchTargetMoveProbabilities):
-                    print ("main(): positionMoveProbabilityAndValueList[index][1] has laready been used")
-                minibatchTargetMoveProbabilities.append(positionMoveProbabilityAndValueList[index][1])
-
-                minibatchTargetValues.append(positionMoveProbabilityAndValueList[index][2])
+                #if HasAlreadyBeenUsed(positionMoveProbabilityAndValueList[index][1], minibatchTargetMoveProbabilities):
+                #    print ("main(): positionMoveProbabilityAndValueList[index][1] has laready been used")
+                minibatchPositions.append(positionStatisticsList[index][0])
+                averageValueMinusNStdDev = positionStatisticsList[index][1] - 1.0 * positionStatisticsList[index][2]
+                legalMovesMask = positionStatisticsList[index][3]
+                """averageValueMinusNStdDev = torch.where(positionStatisticsList[index][3] > 0,
+                                                averageValueMinusNStdDev,
+                                                       positionStatisticsList[index][3].float()) # Get 0 where the mask is 0
+                minibatchTargetMoveProbabilities.append(averageValueMinusNStdDev)
+                """
+                averageValueMinusNStdDev = averageValueMinusNStdDev * legalMovesMask.float()
+                minibatchTargetMoveProbabilities.append(averageValueMinusNStdDev)
+                minibatchTargetValues.append(averageValueMinusNStdDev.max().item())
                 #if authority.CurrentSum(positionsList[index]) == 1:
                 #print ("main(): sum = {}; value = {}".format(authority.CurrentSum(positionsList[index]), value))
                 #print ("main(): minibatchMoveProbabilities = \n{}".format(minibatchMoveProbabilities))
+                minibatchLegalMovesMasks.append(legalMovesMask)
+                #print ("main(): positionStatisticsList[index][0] = {}".format(positionStatisticsList[index][0]))
+                #print ("main(): averageValueMinusNStdDev = {}".format(averageValueMinusNStdDev))
+                #print ("main(): legalMovesMask = {}".format(legalMovesMask))
+                #print ("main(): averageValueMinusNStdDev.max().item() = {}".format(averageValueMinusNStdDev.max().item()))
 
             minibatchPositionsTensor = policy.MinibatchTensor(minibatchPositions)
             minibatchTargetMoveProbabilitiesTensor = policy.MinibatchTensor(minibatchTargetMoveProbabilities)
@@ -154,6 +168,14 @@ def main():
 
             # Forward pass
             (outputMoveProbabilitiesTensor, outputValuesTensor) = neuralNetwork(minibatchPositionsTensor)
+            # Mask the output moves probabilities with the legal moves mask
+            for maskNdx in range(len(minibatchLegalMovesMasks)):
+                outputMoveProbabilities = outputMoveProbabilitiesTensor[maskNdx].clone()
+                legalMovesMask = minibatchLegalMovesMasks[maskNdx]
+                maskedOutputMoveProbabilities = outputMoveProbabilities * legalMovesMask.float()
+                outputMoveProbabilitiesTensor[maskNdx] = maskedOutputMoveProbabilities
+
+
 
             # Calculate the error and backpropagate
             #print ("outputMoveProbabilitiesTensor.shape = {}".format(outputMoveProbabilitiesTensor.shape))
@@ -172,7 +194,8 @@ def main():
 
                 # Move in the gradient descent direction
                 optimizer.step()
-            except:
+            except Exception as exc:
+                print ("Caught excetion: {}".format(exc))
                 print('X', end='', flush=True)
 
 
@@ -210,7 +233,7 @@ def main():
             averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
 
         epochLossFile.write(str(epoch) + ',' + str(averageProbTrainingLoss) + ',' + str(averageValueTrainingLoss) + ',' + str(averageRewardAgainstRandomPlayer) + ',' + str(winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
-        """
+
 
 if __name__ == '__main__':
     main()

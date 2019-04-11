@@ -784,7 +784,7 @@ def GenerateMoveStatistics(playerList,
         moveNdx = 0
         while moveNdx < numberOfMoves and winner is None:
             player = playerList[moveNdx % 2]
-            print ("GenerateMoveStatistics(): player = {}".format(player))
+            #print ("GenerateMoveStatistics(): player = {}".format(player))
             randomMoveTensor = ChooseARandomMove(positionTensor, player, authority)
             positionTensor, winner = authority.Move(positionTensor, player, randomMoveTensor)
             moveNdx += 1
