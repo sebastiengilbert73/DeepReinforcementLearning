@@ -17,7 +17,7 @@ parser.add_argument('--numberOfInitialPositions', help='The number of initial po
 parser.add_argument('--numberOfGamesForEvaluation', help='The number of simulated games, for every initial position, for evaluation. default=30', type=int, default=30)
 parser.add_argument('--learningRateExponentialDecay', help='The learning rate exponential decay. Default: 0.999', type=float, default=0.999)
 parser.add_argument('--weightForTheValueLoss', help='The weight to grant to the value loss, with respect to the move probabilities loss. Default: 0.1', type=float, default=0.1)
-#parser.add_argument('--numberOfStandardDeviationsBelowAverageForValueEstimate', help='When evaluating a position, lower the average value by this number of standard deviations. default: 1.0', type=float, default=1.0)
+parser.add_argument('--numberOfStandardDeviationsBelowAverageForValueEstimate', help='When evaluating a position, lower the average value by this number of standard deviations. default: 1.0', type=float, default=1.0)
 parser.add_argument('--softMaxTemperatureForSelfPlayEvaluation', help='The softmax temperature when evaluation through self-play. Default: 0.3', type=float, default=0.3)
 parser.add_argument('--averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic', help='The dictionary giving the softMax temperature as a function of the average training loss. Default: None (meaning constant softMax temperature)', default=None)
 args = parser.parse_args()
@@ -73,6 +73,27 @@ def main():
     epochLossFile = open(os.path.join(args.outputDirectory, 'epochLoss.csv'), "w",
                          buffering=1)  # Flush the buffer at each line
     epochLossFile.write("epoch,averageProbTrainingLoss,averageValueTrainingLoss,averageRewardAgainstRandomPlayer,winRate,drawRate,lossRate\n")
+
+    # Save the initial neural network, and write it's score against a random player
+    modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_tictactoe_0.pth")
+    torch.save(neuralNetwork.state_dict(), modelParametersFilename)
+    (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate) = \
+        policy.AverageRewardAgainstARandomPlayer(
+            playerList,
+            authority,
+            neuralNetwork,
+            True,
+            0.1,
+            300,
+            moveChoiceMode='SoftMax',
+            numberOfGamesForMoveEvaluation=31 # ignored by SoftMax
+        )
+    print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
+        averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
+
+    epochLossFile.write(
+        '0' + ',' + '-' + ',' + '-' + ',' + str(
+            averageRewardAgainstRandomPlayer) + ',' + str(winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
 
     #bestValidationLoss = sys.float_info.max
     softMaxTemperatureForSelfPlayEvaluation = args.softMaxTemperatureForSelfPlayEvaluation
@@ -141,7 +162,8 @@ def main():
                 #if HasAlreadyBeenUsed(positionMoveProbabilityAndValueList[index][1], minibatchTargetMoveProbabilities):
                 #    print ("main(): positionMoveProbabilityAndValueList[index][1] has laready been used")
                 minibatchPositions.append(positionStatisticsList[index][0])
-                averageValueMinusNStdDev = positionStatisticsList[index][1] - 1.0 * positionStatisticsList[index][2]
+                averageValueMinusNStdDev = positionStatisticsList[index][1] - \
+                                           args.numberOfStandardDeviationsBelowAverageForValueEstimate * positionStatisticsList[index][2]
                 legalMovesMask = positionStatisticsList[index][3]
                 """averageValueMinusNStdDev = torch.where(positionStatisticsList[index][3] > 0,
                                                 averageValueMinusNStdDev,
@@ -227,7 +249,9 @@ def main():
             neuralNetwork,
             True,
             0.1,
-            300
+            300,
+            moveChoiceMode='SoftMax',
+            numberOfGamesForMoveEvaluation=31  # ignored by SoftMax
         )
         print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
             averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))

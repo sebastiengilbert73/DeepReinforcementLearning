@@ -176,12 +176,32 @@ class NeuralNetwork(torch.nn.Module):
                             chosenCoordinates = (ndx0, ndx1, ndx2, ndx3)
 
         if chosenCoordinates is None:
-            raise IndexError("NeuralNetwork.ChooseAMove(): choseCoordinates is None...!???")
+            raise IndexError("NeuralNetwork.ChooseAMove(): chosenCoordinates is None...!???")
 
-        #chosenMoveTensor = torch.zeros(gameAuthority.MoveTensorShape())
         chosenMoveArr = numpy.zeros(gameAuthority.MoveTensorShape())
         chosenMoveArr[chosenCoordinates] = 1.0
         return torch.from_numpy(chosenMoveArr).float()
+
+    def HighestProbabilityMove(self, positionTensor, player, gameAuthority):
+        rawMoveProbabilitiesTensor, value = self.forward(positionTensor.unsqueeze(0))  # Add a dummy minibatch
+        # Remove the dummy minibatch
+        rawMoveProbabilitiesTensor = torch.squeeze(rawMoveProbabilitiesTensor, 0)
+        #print ("HighestProbabilityMove(): rawMoveProbabilitiesTensor =\n{}".format(rawMoveProbabilitiesTensor))
+        chosenMoveTensor = torch.zeros(gameAuthority.MoveTensorShape())
+        legalMovesMask = gameAuthority.LegalMovesMask(positionTensor, player)
+        highestValue = -1E9
+        highestValueCoords = (0, 0, 0, 0)
+        nonZeroCoordsTensor = torch.nonzero(legalMovesMask)
+        for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
+            nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+            #print ("HighestProbabilityMove(): nonZeroCoords = {}".format(nonZeroCoords))
+            if rawMoveProbabilitiesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] > highestValue:
+                highestValue = rawMoveProbabilitiesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
+                highestValueCoords = nonZeroCoords
+                #print ("HighestProbabilityMove(): New champion! highestValue = {}".format(highestValue))
+        chosenMoveTensor[ highestValueCoords[0], highestValueCoords[1], highestValueCoords[2], highestValueCoords[3] ] = 1.0
+        return chosenMoveTensor
+
 
     def NormalizedMoveProbabilities(self, positionTensor, player, gameAuthority, preApplySoftMax=True, softMaxTemperature=1.0):
         rawMoveProbabilitiesTensor, value = self.forward(positionTensor.unsqueeze(0))  # Add a dummy minibatch
@@ -714,7 +734,9 @@ def AverageRewardAgainstARandomPlayer(
                              neuralNetwork, # If None, do random moves
                              preApplySoftMax,
                              softMaxTemperature,
-                             numberOfGames):
+                             numberOfGames,
+                             moveChoiceMode='SoftMax',
+                             numberOfGamesForMoveEvaluation=31):
     rewardSum = 0
     numberOfWins = 0
     numberOfDraws = 0
@@ -733,13 +755,43 @@ def AverageRewardAgainstARandomPlayer(
             if player == playerList[1] or neuralNetwork is None:
                 chosenMoveTensor = ChooseARandomMove(positionTensor, player, authority)
             else:
-                chosenMoveTensor = neuralNetwork.ChooseAMove(
-                    positionTensor,
-                    player,
-                    authority,
-                    preApplySoftMax,
-                    softMaxTemperature
-                )
+                if moveChoiceMode == 'SoftMax':
+                    chosenMoveTensor = neuralNetwork.ChooseAMove(
+                        positionTensor,
+                        player,
+                        authority,
+                        preApplySoftMax,
+                        softMaxTemperature
+                    )
+                elif moveChoiceMode == 'HighestProbabilityMove':
+                    chosenMoveTensor = neuralNetwork.HighestProbabilityMove(
+                        positionTensor, player, authority
+                    )
+                elif moveChoiceMode == 'ExpectedMoveValuesThroughSelfPlay':
+                    moveValuesTensor, standardDeviationTensor, legalMovesMask = PositionExpectedMoveValues(
+                        playerList,
+                        authority,
+                        neuralNetwork,
+                        positionTensor,
+                        numberOfGamesForMoveEvaluation,
+                        softMaxTemperature
+                    )
+                    chosenMoveTensor = torch.zeros(authority.MoveTensorShape())
+                    highestValue = -1E9
+                    highestValueCoords = (0, 0, 0, 0)
+                    nonZeroCoordsTensor = torch.nonzero(legalMovesMask)
+                    for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
+                        nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+                        if moveValuesTensor[
+                            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] > highestValue:
+                            highestValue = moveValuesTensor[
+                                nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
+                            highestValueCoords = nonZeroCoords
+                    chosenMoveTensor[
+                        highestValueCoords[0], highestValueCoords[1], highestValueCoords[2], highestValueCoords[
+                            3]] = 1.0
+                else:
+                    raise NotImplementedError("AverageRewardAgainstARandomPlayer(): Unknown move choice mode '{}'".format(moveChoiceMode))
             # print ("chosenMoveTensor =\n{}".format(chosenMoveTensor))
             positionTensor, winner = authority.Move(positionTensor, player, chosenMoveTensor)
             #authority.Display(positionTensor)
@@ -801,7 +853,7 @@ def GenerateMoveStatistics(playerList,
         winner = None
         moveNdx = 0
         while moveNdx < numberOfMoves and winner is None:
-            player = playerList[moveNdx % 2]
+            #player = playerList[moveNdx % 2]
             chosenMoveTensor = neuralNetwork.ChooseAMove(positionTensor, playerList[0], authority,
                                                          preApplySoftMax=True, softMaxTemperature=1.0)
             positionTensor, winner = authority.Move(positionTensor, playerList[0], chosenMoveTensor)
