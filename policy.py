@@ -321,6 +321,7 @@ def SimulateGameAndGetReward(playerList,
     else:
         return -1.0
 
+"""
 def SimulateGameAndGetPositionsMovesListReward(playerList,
                              positionTensor,
                              nextPlayer,
@@ -374,7 +375,9 @@ def SimulateGameAndGetPositionsMovesListReward(playerList,
         return (player0PositionMovesList, 0.0), (player1PositionMovesList, 0.0)
     else:
         return (player0PositionMovesList, -1.0), (player1PositionMovesList, 1.0)
+"""
 
+"""
 def ProbabilitiesAndValueThroughSelfPlay(playerList,
                                          authority,
                                          neuralNetwork, # If None, do random moves
@@ -431,15 +434,7 @@ def ProbabilitiesAndValueThroughSelfPlay(playerList,
                                                              legalMovesMask,
                                                              preApplySoftMax=preApplySoftMax,
                                                              softMaxTemperature=softMaxTemperature)
-    """valueWeightedSum = 0
-    for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
-        nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
-        moveValue = movesValueTensor[
-            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
-        moveProbability = movesProbabilitiesTensor[
-            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
-        valueWeightedSum += moveProbability * moveValue
-    """
+
     maxValue = sys.float_info.min
     for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
         nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
@@ -449,7 +444,9 @@ def ProbabilitiesAndValueThroughSelfPlay(playerList,
             maxValue = moveValue
 
     return (movesProbabilitiesTensor, maxValue)
+"""
 
+"""
 def IntermediateStatesProbabilitiesAndValue(
                 playerList,
                 authority,
@@ -497,10 +494,7 @@ def IntermediateStatesProbabilitiesAndValue(
             # Draw game: Don't record anything (it would be zeros everywhere in the probability tensor)
             #probabilitiesArr = numpy.zeros(moveTensorShape)
             #probabilitiesArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 0.0
-            """intermediateStateToProbabilitiesAndValueDic[positionAfterFirstMoveTensor] = (
-                firstMoveProbabilities, 0.0
-            )
-            """
+            
             intermediateStateProbabilitiesAndValues.append( (startingPositionTensor.clone(), \
                                                              firstMoveProbabilities, 0.0) )
 
@@ -520,13 +514,7 @@ def IntermediateStatesProbabilitiesAndValue(
                     nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = \
                     player0CorrectionProbabilitiesArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] + player0Reward
                 player0CorrectionProbabilitiesTensor = torch.from_numpy(player0CorrectionProbabilitiesArr).float()
-                """correctedProbabilityTensor = aPrioriProbabilityTensor + 
-                intermediateStateToProbabilitiesAndValueDic[positionAfterFirstMoveTensor] = (
-                    torch.from_numpy(player0ProbabilitiesArr).float(), player0Reward
-                )
-                intermediateStateToProbabilitiesAndValueDic[startingPositionTensor] = (
-                    firstMoveTensor, player0Reward
-                )"""
+                
                 for positionNdx in range(len(player0PositionsMovesList)):
                     position = player0PositionsMovesList[positionNdx][0]
                     aPrioriProbabilityTensor, aPrioriValue = neuralNetwork(position.unsqueeze(0))
@@ -544,12 +532,7 @@ def IntermediateStatesProbabilitiesAndValue(
                     nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = \
                     player1CorrectionProbabilitiesArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] + player1Reward
                 player1CorrectionProbabilitiesTensor = torch.from_numpy(player1CorrectionProbabilitiesArr).float()
-                """intermediateStateToProbabilitiesAndValueDic[positionAfterFirstMoveTensor] = (
-                    torch.from_numpy(player1ProbabilitiesArr).float(), player1Reward
-                )
-                intermediateStateToProbabilitiesAndValueDic[startingPositionTensor] = (
-                    player1Reward * firstMoveTensor, player1Reward
-                )"""
+                
                 for positionNdx in range(len(player1PositionsMovesList)):
                     position = player1PositionsMovesList[positionNdx][0]
                     aPrioriProbabilityTensor, aPrioriValue = neuralNetwork(position.unsqueeze(0))
@@ -564,8 +547,9 @@ def IntermediateStatesProbabilitiesAndValue(
                     #        position, correctedMoveProbability, player1Reward))
 
     return intermediateStateProbabilitiesAndValues
+"""
 
-
+"""
 def GeneratePositionMoveProbabilityAndValue(playerList,
                                                  authority,
                                                  neuralNetwork,
@@ -613,16 +597,7 @@ def GeneratePositionMoveProbabilityAndValue(playerList,
     # For each initial position, evaluate the value of each possible move through self-play
     positionMoveProbabilitiesAndValues = list()
     for initialPosition in initialPositions:
-        """positionToMoveProbabilitiesAndValueDic[initialPosition] = \
-            ProbabilitiesAndValueThroughSelfPlay(playerList,
-                                                 authority,
-                                                 neuralNetwork,
-                                                 initialPosition,
-                                                 numberOfGamesForEvaluation,
-                                                 True,
-                                                 softMaxTemperatureForSelfPlayEvaluation,
-                                                 numberOfStandardDeviationsBelowAverageForValueEstimate)
-        """
+        
         intermediateStatesProbabilitiesAndValues = \
             IntermediateStatesProbabilitiesAndValue(
                 playerList,
@@ -636,6 +611,7 @@ def GeneratePositionMoveProbabilityAndValue(playerList,
             positionMoveProbabilitiesAndValues.append( (intermediateState, probabilities, value) )
 
     return positionMoveProbabilitiesAndValues
+"""
 
 def PositionExpectedMoveValues(
         playerList,
@@ -811,8 +787,10 @@ def AverageRewardAgainstARandomPlayer(
     return (rewardSum / numberOfGames, numberOfWins / numberOfGames, numberOfDraws / numberOfGames,
         numberOfLosses / numberOfGames)
 
+"""
 def NumberOfEntries(tensorShape):
     return tensorShape[0] * tensorShape[1] * tensorShape[2] * tensorShape[3]
+"""
 
 def GenerateMoveStatistics(playerList,
                             authority,
