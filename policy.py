@@ -118,12 +118,12 @@ class NeuralNetwork(torch.nn.Module):
         else:
             raise NotImplementedError("NeuralNetwork.__init__(): Unknown body structure '{}'".format(bodyStructure))
 
-        self.probabilitiesChannelMatcher = torch.nn.Conv3d(in_channels=self.lastLayerInputNumberOfChannels,
+        self.actionValuesChannelMatcher = torch.nn.Conv3d(in_channels=self.lastLayerInputNumberOfChannels,
                                               out_channels=outputTensorSize[0],
                                               kernel_size=1,
                                               padding=0
                                               )
-        self.probabilitiesResizer = torch.nn.Upsample(size=outputTensorSize[-3:], mode='trilinear')
+        self.actionValuesResizer = torch.nn.Upsample(size=outputTensorSize[-3:], mode='trilinear')
         self.outputTensorSize = outputTensorSize
         self.lastLayerNumberOfFeatures = self.lastLayerInputNumberOfChannels * \
             inputTensorSize[-3] * inputTensorSize[-2] * inputTensorSize [-1]
@@ -131,21 +131,17 @@ class NeuralNetwork(torch.nn.Module):
     def forward(self, inputs):
         # Compute the output of the body
         bodyOutputTensor = self.bodyStructure(inputs)
-        #print ("NeuralNetwork.forward(): bodyOutputTensor.shape = {}".format(bodyOutputTensor.shape))
 
         # Move probabilities
-        moveProbabilitiesActivation = self.probabilitiesChannelMatcher(bodyOutputTensor)
-        #print ("NeuralNetwork.forward(): moveProbabilitiesActivation.shape = {}".format(moveProbabilitiesActivation.shape))
-        moveProbabilitiesTensor = self.probabilitiesResizer(moveProbabilitiesActivation)
-        #print ("NeuralNetwork.forward(): moveProbabilitiesTensor.shape = {}".format(moveProbabilitiesTensor.shape))
-
-        return moveProbabilitiesTensor
+        actionValuesActivation = self.actionValuesChannelMatcher(bodyOutputTensor)
+        actionValuesTensor = self.actionValuesResizer(actionValuesActivation)
+        return actionValuesTensor
 
     def ChooseAMove(self, positionTensor, player, gameAuthority, preApplySoftMax=True, softMaxTemperature=1.0,
                     epsilon=0.1):
-        rawMoveProbabilitiesTensor = self.forward(positionTensor.unsqueeze(0)) # Add a dummy minibatch
+        actionValuesTensor = self.forward(positionTensor.unsqueeze(0)) # Add a dummy minibatch
         # Remove the dummy minibatch
-        rawMoveProbabilitiesTensor = torch.squeeze(rawMoveProbabilitiesTensor, 0)
+        actionValuesTensor = torch.squeeze(actionValuesTensor, 0)
 
         chooseARandomMove = random.random() < epsilon
         if chooseARandomMove:
@@ -154,20 +150,20 @@ class NeuralNetwork(torch.nn.Module):
         # Else: choose according to probabilities
         legalMovesMask = gameAuthority.LegalMovesMask(positionTensor, player)
 
-        normalizedProbabilitiesTensor = NormalizeProbabilities(rawMoveProbabilitiesTensor,
+        normalizedActionValuesTensor = NormalizeProbabilities(actionValuesTensor,
                                                                legalMovesMask,
                                                                preApplySoftMax=preApplySoftMax,
                                                                softMaxTemperature=softMaxTemperature)
         randomNbr = random.random()
-        probabilitiesTensorShape = normalizedProbabilitiesTensor.shape
+        actionValuesTensorShape = normalizedActionValuesTensor.shape
 
         runningSum = 0
         chosenCoordinates = None
-        for ndx0 in range(probabilitiesTensorShape[0]):
-            for ndx1 in range(probabilitiesTensorShape[1]):
-                for ndx2 in range(probabilitiesTensorShape[2]):
-                    for ndx3 in range(probabilitiesTensorShape[3]):
-                        runningSum += normalizedProbabilitiesTensor[ndx0, ndx1, ndx2, ndx3]
+        for ndx0 in range(actionValuesTensorShape[0]):
+            for ndx1 in range(actionValuesTensorShape[1]):
+                for ndx2 in range(actionValuesTensorShape[2]):
+                    for ndx3 in range(actionValuesTensorShape[3]):
+                        runningSum += normalizedActionValuesTensor[ndx0, ndx1, ndx2, ndx3]
                         if runningSum >= randomNbr and chosenCoordinates is None:
                             chosenCoordinates = (ndx0, ndx1, ndx2, ndx3)
 
@@ -178,11 +174,10 @@ class NeuralNetwork(torch.nn.Module):
         chosenMoveArr[chosenCoordinates] = 1.0
         return torch.from_numpy(chosenMoveArr).float()
 
-    def HighestProbabilityMove(self, positionTensor, player, gameAuthority):
-        rawMoveProbabilitiesTensor = self.forward(positionTensor.unsqueeze(0))  # Add a dummy minibatch
+    def HighestActionValueMove(self, positionTensor, player, gameAuthority):
+        actionValuesTensor = self.forward(positionTensor.unsqueeze(0))  # Add a dummy minibatch
         # Remove the dummy minibatch
-        rawMoveProbabilitiesTensor = torch.squeeze(rawMoveProbabilitiesTensor, 0)
-        #print ("HighestProbabilityMove(): rawMoveProbabilitiesTensor =\n{}".format(rawMoveProbabilitiesTensor))
+        actionValuesTensor = torch.squeeze(actionValuesTensor, 0)
         chosenMoveTensor = torch.zeros(gameAuthority.MoveTensorShape())
         legalMovesMask = gameAuthority.LegalMovesMask(positionTensor, player)
         highestValue = -1E9
@@ -191,25 +186,24 @@ class NeuralNetwork(torch.nn.Module):
         for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
             nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
             #print ("HighestProbabilityMove(): nonZeroCoords = {}".format(nonZeroCoords))
-            if rawMoveProbabilitiesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] > highestValue:
-                highestValue = rawMoveProbabilitiesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
+            if actionValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] > highestValue:
+                highestValue = actionValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
                 highestValueCoords = nonZeroCoords
-                #print ("HighestProbabilityMove(): New champion! highestValue = {}".format(highestValue))
         chosenMoveTensor[ highestValueCoords[0], highestValueCoords[1], highestValueCoords[2], highestValueCoords[3] ] = 1.0
         return chosenMoveTensor
 
 
     def NormalizedMoveProbabilities(self, positionTensor, player, gameAuthority, preApplySoftMax=True, softMaxTemperature=1.0):
-        rawMoveProbabilitiesTensor = self.forward(positionTensor.unsqueeze(0))  # Add a dummy minibatch
+        actionValuesTensor = self.forward(positionTensor.unsqueeze(0))  # Add a dummy minibatch
         # Remove the dummy minibatch
-        rawMoveProbabilitiesTensor = torch.squeeze(rawMoveProbabilitiesTensor, 0)
+        actionValuesTensor = torch.squeeze(actionValuesTensor, 0)
 
         legalMovesMask = gameAuthority.LegalMovesMask(positionTensor, player)
-        normalizedProbabilitiesTensor = NormalizeProbabilities(rawMoveProbabilitiesTensor,
+        normalizedActionValuesTensor = NormalizeProbabilities(actionValuesTensor,
                                                                legalMovesMask,
                                                                preApplySoftMax=preApplySoftMax,
                                                                softMaxTemperature=softMaxTemperature)
-        return normalizedProbabilitiesTensor
+        return normalizedActionValuesTensor
 
 
 
@@ -271,7 +265,7 @@ def ChooseARandomMove(positionTensor, player, gameAuthority):
 
     if chosenCoordinates is None:
         raise IndexError("ChooseARandomMove(): choseCoordinates is None...!???")
-    #chosenMoveTensor = torch.zeros(gameAuthority.MoveTensorShape())
+
     chosenMoveArr = numpy.zeros(gameAuthority.MoveTensorShape())
     chosenMoveArr[chosenCoordinates] = 1.0
     return torch.from_numpy(chosenMoveArr).float()
@@ -692,6 +686,7 @@ def MinibatchTensor(positionsList):
         minibatchTensor[n] = positionsList[n]
     return minibatchTensor
 
+"""
 def MinibatchValuesTensor(valuesList):
     if len(valuesList) == 0:
         raise ArgumentException("MinibatchValuesTensor(): Empty list of values")
@@ -699,6 +694,7 @@ def MinibatchValuesTensor(valuesList):
     for n in range (len (valuesList)):
         valuesTensor[n] = valuesList[n]
     return valuesTensor
+"""
 
 def adjust_lr(optimizer, desiredLearningRate):
     for param_group in optimizer.param_groups:
@@ -740,8 +736,8 @@ def AverageRewardAgainstARandomPlayer(
                         softMaxTemperature,
                         epsilon=0
                     )
-                elif moveChoiceMode == 'HighestProbabilityMove':
-                    chosenMoveTensor = neuralNetwork.HighestProbabilityMove(
+                elif moveChoiceMode == 'HighestActionValueMove':
+                    chosenMoveTensor = neuralNetwork.HighestActionValueMove(
                         positionTensor, player, authority
                     )
                 elif moveChoiceMode == 'ExpectedMoveValuesThroughSelfPlay':

@@ -138,7 +138,7 @@ def main():
         #print ("main(): len(positionToMoveProbabilitiesAndValueDic) = {}".format(len(positionToMoveProbabilitiesAndValueDic)))
         #positionsList = list(positionToMoveProbabilitiesAndValueDic.keys())
 
-        trainingProbLossSum = 0.0
+        actionValuesLossSum = 0.0
         minibatchIndicesList = policy.MinibatchIndices(len(positionStatisticsList), args.minibatchSize)
 
 
@@ -146,8 +146,7 @@ def main():
         for minibatchNdx in range(len(minibatchIndicesList)):
             print('.', end='', flush=True)
             minibatchPositions = []
-            minibatchTargetMoveProbabilities = []
-            minibatchTargetValues = []
+            minibatchTargetActionValues = []
             minibatchLegalMovesMasks = []
 
             for index in minibatchIndicesList[minibatchNdx]:
@@ -172,8 +171,8 @@ def main():
                 minibatchTargetMoveProbabilities.append(averageValueMinusNStdDev)
                 """
                 averageValueMinusNStdDev = averageValueMinusNStdDev * legalMovesMask.float()
-                minibatchTargetMoveProbabilities.append(averageValueMinusNStdDev)
-                minibatchTargetValues.append(averageValueMinusNStdDev.max().item())
+                minibatchTargetActionValues.append(averageValueMinusNStdDev)
+
                 #if authority.CurrentSum(positionsList[index]) == 1:
                 #print ("main(): sum = {}; value = {}".format(authority.CurrentSum(positionsList[index]), value))
                 #print ("main(): minibatchMoveProbabilities = \n{}".format(minibatchMoveProbabilities))
@@ -184,18 +183,18 @@ def main():
                 #print ("main(): averageValueMinusNStdDev.max().item() = {}".format(averageValueMinusNStdDev.max().item()))
 
             minibatchPositionsTensor = policy.MinibatchTensor(minibatchPositions)
-            minibatchTargetMoveProbabilitiesTensor = policy.MinibatchTensor(minibatchTargetMoveProbabilities)
+            minibatchTargetActionValuesTensor = policy.MinibatchTensor(minibatchTargetActionValues)
 
             optimizer.zero_grad()
 
             # Forward pass
-            outputMoveProbabilitiesTensor = neuralNetwork(minibatchPositionsTensor)
-            # Mask the output moves probabilities with the legal moves mask
+            outputActionValuesTensor = neuralNetwork(minibatchPositionsTensor)
+            # Mask the output action values with the legal moves mask
             for maskNdx in range(len(minibatchLegalMovesMasks)):
-                outputMoveProbabilities = outputMoveProbabilitiesTensor[maskNdx].clone()
+                outputActionValues = outputActionValuesTensor[maskNdx].clone()
                 legalMovesMask = minibatchLegalMovesMasks[maskNdx]
-                maskedOutputMoveProbabilities = outputMoveProbabilities * legalMovesMask.float()
-                outputMoveProbabilitiesTensor[maskNdx] = maskedOutputMoveProbabilities
+                maskedOutputActionValues = outputActionValues * legalMovesMask.float()
+                outputActionValuesTensor[maskNdx] = maskedOutputActionValues
 
 
 
@@ -204,12 +203,12 @@ def main():
             #print ("minibatchTargetMoveProbabilitiesTensor.shape = {}".format(minibatchTargetMoveProbabilitiesTensor.shape))
             #print ("outputValuesTensor.shape = {}".format(outputValuesTensor.shape))
             #print ("minibatchTargetValuesTensor.shape = {}".format(minibatchTargetValuesTensor.shape))
-            probLoss = loss(outputMoveProbabilitiesTensor, minibatchTargetMoveProbabilitiesTensor)
+            actionValuesLoss = loss(outputActionValuesTensor, minibatchTargetActionValuesTensor)
 
             try:
-                probLoss.backward()
+                actionValuesLoss.backward()
                 # trainingLossSum += minibatchLoss.item()
-                trainingProbLossSum += probLoss.item()
+                actionValuesLossSum += actionValuesLoss.item()
 
                 # Move in the gradient descent direction
                 optimizer.step()
@@ -219,12 +218,12 @@ def main():
 
 
 
-        averageProbTrainingLoss = trainingProbLossSum / len(minibatchIndicesList)
+        averageActionValuesTrainingLoss = actionValuesLossSum / len(minibatchIndicesList)
 
-        print("\nEpoch {}: averageProbTrainingLoss = {}".format(epoch, averageProbTrainingLoss))
+        print("\nEpoch {}: averageActionValuesTrainingLoss = {}".format(epoch, averageActionValuesTrainingLoss))
 
         if averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic is not None:
-            softMaxTemperatureForSelfPlayEvaluation = SoftMaxTemperature(averageProbTrainingLoss,
+            softMaxTemperatureForSelfPlayEvaluation = SoftMaxTemperature(averageActionValuesTrainingLoss,
                                                                          averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic,
                                                                          args.softMaxTemperatureForSelfPlayEvaluation)
 
@@ -253,7 +252,7 @@ def main():
         print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
             averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
 
-        epochLossFile.write(str(epoch) + ',' + str(averageProbTrainingLoss) + ',' + str(averageRewardAgainstRandomPlayer) + ',' + str(winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
+        epochLossFile.write(str(epoch) + ',' + str(averageActionValuesTrainingLoss) + ',' + str(averageRewardAgainstRandomPlayer) + ',' + str(winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
 
 
 if __name__ == '__main__':
