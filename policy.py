@@ -127,11 +127,6 @@ class NeuralNetwork(torch.nn.Module):
         self.outputTensorSize = outputTensorSize
         self.lastLayerNumberOfFeatures = self.lastLayerInputNumberOfChannels * \
             inputTensorSize[-3] * inputTensorSize[-2] * inputTensorSize [-1]
-        self.valueHead = torch.nn.Sequential(
-            torch.nn.Linear(self.lastLayerNumberOfFeatures, math.ceil(math.sqrt(self.lastLayerNumberOfFeatures))),
-            torch.nn.ReLU(),
-            torch.nn.Linear(math.ceil(math.sqrt(self.lastLayerNumberOfFeatures)), 1)
-        )
 
     def forward(self, inputs):
         # Compute the output of the body
@@ -144,17 +139,11 @@ class NeuralNetwork(torch.nn.Module):
         moveProbabilitiesTensor = self.probabilitiesResizer(moveProbabilitiesActivation)
         #print ("NeuralNetwork.forward(): moveProbabilitiesTensor.shape = {}".format(moveProbabilitiesTensor.shape))
 
-        # Value
-        #print ("NeuralNetwork.forward(): bodyOutputTensor.shape = {}".format(bodyOutputTensor.shape))
-        #print ("NeuralNetwork.forward(): self.lastLayerNumberOfFeatures = {}".format(self.lastLayerNumberOfFeatures))
-        bodyOutputVector = bodyOutputTensor.view(-1, self.lastLayerNumberOfFeatures)
-        valueActivation = self.valueHead(bodyOutputVector)
-        #print ("NeuralNetwork.forward(): valueActivation = {}".format(valueActivation))
-        return moveProbabilitiesTensor, valueActivation
+        return moveProbabilitiesTensor
 
     def ChooseAMove(self, positionTensor, player, gameAuthority, preApplySoftMax=True, softMaxTemperature=1.0,
                     epsilon=0.1):
-        rawMoveProbabilitiesTensor, value = self.forward(positionTensor.unsqueeze(0)) # Add a dummy minibatch
+        rawMoveProbabilitiesTensor = self.forward(positionTensor.unsqueeze(0)) # Add a dummy minibatch
         # Remove the dummy minibatch
         rawMoveProbabilitiesTensor = torch.squeeze(rawMoveProbabilitiesTensor, 0)
 
@@ -190,7 +179,7 @@ class NeuralNetwork(torch.nn.Module):
         return torch.from_numpy(chosenMoveArr).float()
 
     def HighestProbabilityMove(self, positionTensor, player, gameAuthority):
-        rawMoveProbabilitiesTensor, value = self.forward(positionTensor.unsqueeze(0))  # Add a dummy minibatch
+        rawMoveProbabilitiesTensor = self.forward(positionTensor.unsqueeze(0))  # Add a dummy minibatch
         # Remove the dummy minibatch
         rawMoveProbabilitiesTensor = torch.squeeze(rawMoveProbabilitiesTensor, 0)
         #print ("HighestProbabilityMove(): rawMoveProbabilitiesTensor =\n{}".format(rawMoveProbabilitiesTensor))
@@ -211,7 +200,7 @@ class NeuralNetwork(torch.nn.Module):
 
 
     def NormalizedMoveProbabilities(self, positionTensor, player, gameAuthority, preApplySoftMax=True, softMaxTemperature=1.0):
-        rawMoveProbabilitiesTensor, value = self.forward(positionTensor.unsqueeze(0))  # Add a dummy minibatch
+        rawMoveProbabilitiesTensor = self.forward(positionTensor.unsqueeze(0))  # Add a dummy minibatch
         # Remove the dummy minibatch
         rawMoveProbabilitiesTensor = torch.squeeze(rawMoveProbabilitiesTensor, 0)
 

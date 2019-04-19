@@ -73,7 +73,7 @@ def main():
     # Output monitoring file
     epochLossFile = open(os.path.join(args.outputDirectory, 'epochLoss.csv'), "w",
                          buffering=1)  # Flush the buffer at each line
-    epochLossFile.write("epoch,averageProbTrainingLoss,averageValueTrainingLoss,averageRewardAgainstRandomPlayer,winRate,drawRate,lossRate\n")
+    epochLossFile.write("epoch,averageProbTrainingLoss,averageRewardAgainstRandomPlayer,winRate,drawRate,lossRate\n")
 
     # Save the initial neural network, and write it's score against a random player
     modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_tictactoe_0.pth")
@@ -93,7 +93,7 @@ def main():
         averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
 
     epochLossFile.write(
-        '0' + ',' + '-' + ',' + '-' + ',' + str(
+        '0' + ',' + '-' + ',' + str(
             averageRewardAgainstRandomPlayer) + ',' + str(winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
 
     #bestValidationLoss = sys.float_info.max
@@ -139,7 +139,6 @@ def main():
         #positionsList = list(positionToMoveProbabilitiesAndValueDic.keys())
 
         trainingProbLossSum = 0.0
-        trainingValueLossSum = 0.0
         minibatchIndicesList = policy.MinibatchIndices(len(positionStatisticsList), args.minibatchSize)
 
 
@@ -186,12 +185,11 @@ def main():
 
             minibatchPositionsTensor = policy.MinibatchTensor(minibatchPositions)
             minibatchTargetMoveProbabilitiesTensor = policy.MinibatchTensor(minibatchTargetMoveProbabilities)
-            minibatchTargetValuesTensor = policy.MinibatchValuesTensor(minibatchTargetValues)
 
             optimizer.zero_grad()
 
             # Forward pass
-            (outputMoveProbabilitiesTensor, outputValuesTensor) = neuralNetwork(minibatchPositionsTensor)
+            outputMoveProbabilitiesTensor = neuralNetwork(minibatchPositionsTensor)
             # Mask the output moves probabilities with the legal moves mask
             for maskNdx in range(len(minibatchLegalMovesMasks)):
                 outputMoveProbabilities = outputMoveProbabilitiesTensor[maskNdx].clone()
@@ -206,15 +204,12 @@ def main():
             #print ("minibatchTargetMoveProbabilitiesTensor.shape = {}".format(minibatchTargetMoveProbabilitiesTensor.shape))
             #print ("outputValuesTensor.shape = {}".format(outputValuesTensor.shape))
             #print ("minibatchTargetValuesTensor.shape = {}".format(minibatchTargetValuesTensor.shape))
-            probLoss = (1 - args.weightForTheValueLoss) * loss(outputMoveProbabilitiesTensor, minibatchTargetMoveProbabilitiesTensor)
-            valueLoss = args.weightForTheValueLoss * loss(outputValuesTensor, minibatchTargetValuesTensor)
-            minibatchLoss = probLoss + valueLoss#(1 - args.weightForTheValueLoss) * loss(outputMoveProbabilitiesTensor, minibatchTargetMoveProbabilitiesTensor) + \
-                #args.weightForTheValueLoss * loss(outputValuesTensor, minibatchTargetValuesTensor)
+            probLoss = loss(outputMoveProbabilitiesTensor, minibatchTargetMoveProbabilitiesTensor)
+
             try:
-                minibatchLoss.backward()
+                probLoss.backward()
                 # trainingLossSum += minibatchLoss.item()
                 trainingProbLossSum += probLoss.item()
-                trainingValueLossSum += valueLoss.item()
 
                 # Move in the gradient descent direction
                 optimizer.step()
@@ -225,11 +220,11 @@ def main():
 
 
         averageProbTrainingLoss = trainingProbLossSum / len(minibatchIndicesList)
-        averageValueTrainingLoss = trainingValueLossSum / len(minibatchIndicesList)
-        print("\nEpoch {}: averageProbTrainingLoss = {}; averageValueTrainingLoss = {}".format(epoch, averageProbTrainingLoss, averageValueTrainingLoss))
+
+        print("\nEpoch {}: averageProbTrainingLoss = {}".format(epoch, averageProbTrainingLoss))
 
         if averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic is not None:
-            softMaxTemperatureForSelfPlayEvaluation = SoftMaxTemperature(averageProbTrainingLoss + averageValueTrainingLoss,
+            softMaxTemperatureForSelfPlayEvaluation = SoftMaxTemperature(averageProbTrainingLoss,
                                                                          averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic,
                                                                          args.softMaxTemperatureForSelfPlayEvaluation)
 
@@ -258,7 +253,7 @@ def main():
         print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
             averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
 
-        epochLossFile.write(str(epoch) + ',' + str(averageProbTrainingLoss) + ',' + str(averageValueTrainingLoss) + ',' + str(averageRewardAgainstRandomPlayer) + ',' + str(winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
+        epochLossFile.write(str(epoch) + ',' + str(averageProbTrainingLoss) + ',' + str(averageRewardAgainstRandomPlayer) + ',' + str(winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
 
 
 if __name__ == '__main__':
