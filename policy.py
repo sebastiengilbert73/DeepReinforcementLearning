@@ -168,6 +168,10 @@ class NeuralNetwork(torch.nn.Module):
                             chosenCoordinates = (ndx0, ndx1, ndx2, ndx3)
 
         if chosenCoordinates is None:
+            print ("NeuralNetwork.ChooseAMove(): positionTensor = \n{}".format(positionTensor))
+            print ("NeuralNetwork.ChooseAMove(): actionValuesTensor = \n{}".format(actionValuesTensor))
+            print ("NeuralNetwork.ChooseAMove(): legalMovesMask =\n{}".format(legalMovesMask))
+            print ("NeuralNetwork.ChooseAMove(): normalizedActionValuesTensor =\n{}".format(normalizedActionValuesTensor))
             raise IndexError("NeuralNetwork.ChooseAMove(): chosenCoordinates is None...!???")
 
         chosenMoveArr = numpy.zeros(gameAuthority.MoveTensorShape())

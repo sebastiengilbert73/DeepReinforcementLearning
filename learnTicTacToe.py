@@ -73,7 +73,7 @@ def main():
     # Output monitoring file
     epochLossFile = open(os.path.join(args.outputDirectory, 'epochLoss.csv'), "w",
                          buffering=1)  # Flush the buffer at each line
-    epochLossFile.write("epoch,averageProbTrainingLoss,averageRewardAgainstRandomPlayer,winRate,drawRate,lossRate\n")
+    epochLossFile.write("epoch,averageActionValuesTrainingLoss,averageRewardAgainstRandomPlayer,winRate,drawRate,lossRate\n")
 
     # Save the initial neural network, and write it's score against a random player
     modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_tictactoe_0.pth")
