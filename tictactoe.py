@@ -174,18 +174,24 @@ def main():
                                          '[(3, 16), (3, 16), (3, 16)]',
                                          moveTensorShape)
     neuralNetwork.load_state_dict(torch.load('/home/sebastien/projects/DeepReinforcementLearning/outputs/neuralNet_tictactoe_499.pth'))
-    """averageReward, winRate, drawRate, lossRate = \
-        policy.AverageRewardAgainstARandomPlayer(
+    averageReward, winRate, drawRate, lossRate, losingGamesPositionsListList = \
+        policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
                              playersList,
                              authority,
                              neuralNetwork, # If None, do random moves
                              preApplySoftMax=True,
                              softMaxTemperature=1.0,
-                             numberOfGames=50,
+                             numberOfGames=20,
                              moveChoiceMode='ExpectedMoveValuesThroughSelfPlay',
                              numberOfGamesForMoveEvaluation=11)
     
     print ("averageReward = {}; winRate = {}; drawRate = {}; lossRate = {}".format(averageReward, winRate, drawRate, lossRate))
+
+    for (losingGamePositionsList, firstPlayer) in losingGamesPositionsListList:
+        print ("firstPlayer = {}".format(firstPlayer))
+        for positionNdx in range(len(losingGamePositionsList)):
+            print ("positionNdx = {}:".format(positionNdx))
+            print (losingGamePositionsList[positionNdx])
     """
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 1))
@@ -222,7 +228,7 @@ def main():
     highestProbabilityMove = neuralNetwork.HighestProbabilityMove(
         initialPosition, playersList[0], authority)
     print ("highestProbabilityMove =\n{}".format(highestProbabilityMove))
-
+    """
     """positionMoveStatisticsList = policy.GenerateMoveStatistics(playersList,
                            authority,
                            neuralNetwork,

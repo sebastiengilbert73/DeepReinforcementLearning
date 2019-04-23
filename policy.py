@@ -789,6 +789,97 @@ def AverageRewardAgainstARandomPlayer(
     return (rewardSum / numberOfGames, numberOfWins / numberOfGames, numberOfDraws / numberOfGames,
         numberOfLosses / numberOfGames)
 
+def AverageRewardAgainstARandomPlayerKeepLosingGames(
+                             playerList,
+                             authority,
+                             neuralNetwork, # If None, do random moves
+                             preApplySoftMax,
+                             softMaxTemperature,
+                             numberOfGames,
+                             moveChoiceMode='SoftMax',
+                             numberOfGamesForMoveEvaluation=31,
+                             ):
+    rewardSum = 0
+    numberOfWins = 0
+    numberOfDraws = 0
+    numberOfLosses = 0
+    losingGamesPositionsListList = list()
+    for gameNdx in range(numberOfGames):
+        firstPlayer = playerList[gameNdx % 2]
+        if firstPlayer == playerList[0]:
+            moveNdx = 0
+        else:
+            moveNdx = 1
+        positionTensor = authority.InitialPosition()
+        gamePositionsList = list()
+        gamePositionsList.append(positionTensor)
+        #authority.Display(positionTensor)
+        winner = None
+        while winner is None:
+            player = playerList[moveNdx % 2]
+            if player == playerList[1] or neuralNetwork is None:
+                chosenMoveTensor = ChooseARandomMove(positionTensor, player, authority)
+            else:
+                if moveChoiceMode == 'SoftMax':
+                    chosenMoveTensor = neuralNetwork.ChooseAMove(
+                        positionTensor,
+                        player,
+                        authority,
+                        preApplySoftMax,
+                        softMaxTemperature,
+                        epsilon=0
+                    )
+                elif moveChoiceMode == 'HighestActionValueMove':
+                    chosenMoveTensor = neuralNetwork.HighestActionValueMove(
+                        positionTensor, player, authority
+                    )
+                elif moveChoiceMode == 'ExpectedMoveValuesThroughSelfPlay':
+                    moveValuesTensor, standardDeviationTensor, legalMovesMask = PositionExpectedMoveValues(
+                        playerList,
+                        authority,
+                        neuralNetwork,
+                        positionTensor,
+                        numberOfGamesForMoveEvaluation,
+                        softMaxTemperature,
+                        epsilon=0
+                    )
+                    chosenMoveTensor = torch.zeros(authority.MoveTensorShape())
+                    highestValue = -1E9
+                    highestValueCoords = (0, 0, 0, 0)
+                    nonZeroCoordsTensor = torch.nonzero(legalMovesMask)
+                    for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
+                        nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+                        if moveValuesTensor[
+                            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] > highestValue:
+                            highestValue = moveValuesTensor[
+                                nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
+                            highestValueCoords = nonZeroCoords
+                    chosenMoveTensor[
+                        highestValueCoords[0], highestValueCoords[1], highestValueCoords[2], highestValueCoords[
+                            3]] = 1.0
+                else:
+                    raise NotImplementedError("AverageRewardAgainstARandomPlayer(): Unknown move choice mode '{}'".format(moveChoiceMode))
+            # print ("chosenMoveTensor =\n{}".format(chosenMoveTensor))
+            positionTensor, winner = authority.Move(positionTensor, player, chosenMoveTensor)
+            gamePositionsList.append(positionTensor)
+            #authority.Display(positionTensor)
+            #print ("policy.AverageRewardAgainstARandomPlayer() winner = {}".format(winner))
+            moveNdx += 1
+            #positionTensor = authority.SwapPositions(positionTensor, playerList[0], playerList[1])
+        if winner == playerList[0]:
+            rewardSum += 1.0
+            numberOfWins += 1
+        elif winner == 'draw':
+            rewardSum += 0.0
+            numberOfDraws += 1
+        else:
+            rewardSum += -1.0
+            numberOfLosses += 1
+            losingGamesPositionsListList.append((gamePositionsList, firstPlayer))
+
+    return (rewardSum / numberOfGames, numberOfWins / numberOfGames, numberOfDraws / numberOfGames,
+        numberOfLosses / numberOfGames, losingGamesPositionsListList)
+
 """
 def NumberOfEntries(tensorShape):
     return tensorShape[0] * tensorShape[1] * tensorShape[2] * tensorShape[3]
@@ -802,10 +893,11 @@ def GenerateMoveStatistics(playerList,
                             numberOfInitialPositions,
                             numberOfGamesForEvaluation,
                             softMaxTemperatureForSelfPlayEvaluation,
-                            epsilon
+                            epsilon,
+                            additionalStartingPositionsList=[]
                             ):
     # Create initial positions
-    initialPositions = []
+    initialPositions = additionalStartingPositionsList
     randomInitialPositionsNumber = int(proportionOfRandomInitialPositions * numberOfInitialPositions)
     createdRandomInitialPositionsNumber = 0
     while createdRandomInitialPositionsNumber < randomInitialPositionsNumber:

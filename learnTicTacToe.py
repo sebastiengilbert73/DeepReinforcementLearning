@@ -105,6 +105,8 @@ def main():
     else:
         averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic = None
 
+    losingGamesAgainstRandomPlayerPositionsList = []
+
     for epoch in range(1, args.numberOfEpochs + 1):
         print ("epoch {}".format(epoch))
         # Set the neural network to training mode
@@ -130,7 +132,8 @@ def main():
             args.numberOfInitialPositions,
             args.numberOfGamesForEvaluation,
             softMaxTemperatureForSelfPlayEvaluation,
-            args.epsilon
+            args.epsilon,
+            losingGamesAgainstRandomPlayerPositionsList
         )
         # (initialPosition, averageValuesTensor, standardDeviationTensor, legalMovesNMask)
         #print ("positionStatisticsList = {}".format(positionStatisticsList))
@@ -238,8 +241,8 @@ def main():
         modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_tictactoe_" + str(epoch) + '.pth')
         torch.save(neuralNetwork.state_dict(), modelParametersFilename)
 
-        (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate) = \
-            policy.AverageRewardAgainstARandomPlayer(
+        (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
+            policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
             playerList,
             authority,
             neuralNetwork,
@@ -251,6 +254,16 @@ def main():
         )
         print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
             averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
+        # Collect the positions from losing games
+        losingGamesAgainstRandomPlayerPositionsList = []
+        for (losingGamePositionsList, firstPlayer) in losingGamePositionsListList:
+            for positionNdx in range(len(losingGamePositionsList) - 1):
+                if firstPlayer == playerList[0]: # Keep even positions
+                    if positionNdx %2 == 0:
+                        losingGamesAgainstRandomPlayerPositionsList.append(losingGamePositionsList[positionNdx])
+                else: # fistPlayer == playerList[1] -> Keep odd positions
+                    if positionNdx %2 == 1:
+                        losingGamesAgainstRandomPlayerPositionsList.append(losingGamePositionsList[positionNdx])
 
         epochLossFile.write(str(epoch) + ',' + str(averageActionValuesTrainingLoss) + ',' + str(averageRewardAgainstRandomPlayer) + ',' + str(winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
 
