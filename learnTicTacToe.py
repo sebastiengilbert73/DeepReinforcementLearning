@@ -240,7 +240,12 @@ def main():
         #    bestValidationLoss = validationLoss
         modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_tictactoe_" + str(epoch) + '.pth')
         torch.save(neuralNetwork.state_dict(), modelParametersFilename)
-
+        if epoch % 20 == 0:
+            moveChoiceMode = 'ExpectedMoveValuesThroughSelfPlay'
+            numberOfGames = 100
+        else:
+            moveChoiceMode = 'SoftMax'
+            numberOfGames = 300
         (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
             policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
             playerList,
@@ -248,9 +253,9 @@ def main():
             neuralNetwork,
             True,
             1.0,
-            300,
-            moveChoiceMode='ExpectedMoveValuesThroughSelfPlay',
-            numberOfGamesForMoveEvaluation=31  # ignored by SoftMax
+            numberOfGames=numberOfGames,
+            moveChoiceMode=moveChoiceMode,
+            numberOfGamesForMoveEvaluation=21  # ignored by SoftMax
         )
         print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
             averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
