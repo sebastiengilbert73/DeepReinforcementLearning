@@ -247,9 +247,9 @@ def main():
             authority,
             neuralNetwork,
             True,
-            0.1,
+            1.0,
             300,
-            moveChoiceMode='SoftMax',
+            moveChoiceMode='ExpectedMoveValuesThroughSelfPlay',
             numberOfGamesForMoveEvaluation=31  # ignored by SoftMax
         )
         print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(

@@ -22,6 +22,9 @@ class Authority():
         self.numberOfRows = numberOfRows
         self.numberOfColumns = numberOfColumns
 
+    def PlayersList(self):
+        return self.playersList
+
     def ThereIs4InARow(self, planeNdx, positionTensor):
         if positionTensor.shape != self.positionTensorShape: # (C, D, H, W)
             raise ValueError("Authority.ThereIs4InARow(): The shape of positionTensor ({}) is not {}".format(positionTensor.shape, self.positionTensorShape))
@@ -67,4 +70,60 @@ class Authority():
 
         # Otherwise
         return False
+
+    def MoveWithColumn(self, currentPositionTensor, player, dropColumn):
+        if currentPositionTensor.shape != self.positionTensorShape: # (C, D, H, W)
+            raise ValueError("Authority.MoveWithColumn(): The shape of currentPositionTensor {} is not {}".format(currentPositionTensor.shape, self.positionTensorShape))
+        if dropColumn >= self.numberOfColumns:
+            raise ValueError("Authority.MoveWithColumn(): dropColumn ({}) is >= self.numberOfColumns ({})".format(dropColumn, self.numberOfColumns))
+        newPositionTensor = currentPositionTensor.clone()
+        topAvailableRow = self.TopAvailableRow(currentPositionTensor, dropColumn)
+        if topAvailableRow == None:
+            raise ValueError(
+                "Authority.MoveWithColumn(): Attempt to drop in column {}, while it is already filled".format(
+                    dropColumn))
+        newPositionTensor[self.playerToPlaneIndexDic[player], 0, topAvailableRow, dropColumn] = 1.0
+        return newPositionTensor
+
+
+    def TopAvailableRow(self, positionTensor, dropColumn):
+        # Must return None if the column is already filled
+        # Check the bottom row
+        if positionTensor[0, 0, self.numberOfRows - 1, dropColumn] == 0 and \
+            positionTensor[1, 0, self.numberOfRows - 1, dropColumn] == 0:
+            return self.numberOfRows - 1
+
+        highestOneRow = self.numberOfRows - 1
+        for row in range(self.numberOfRows - 2, -1, -1): # Cound backward: 4, 3, 2, 1, 0
+            if positionTensor[0, 0, row, dropColumn] > 0 or \
+                positionTensor[1, 0, row, dropColumn] > 0:
+                highestOneRow = row
+        if highestOneRow == 0: # The column is already filled
+            return None
+        else:
+            return highestOneRow - 1
+
+
+    def InitialPosition(self):
+        initialPosition = torch.zeros(self.positionTensorShape)
+        return initialPosition
+
+
+def main():
+    print ("connect4.py main()")
+    authority = Authority()
+    playersList = authority.PlayersList()
+    position = authority.InitialPosition()
+    position = authority.MoveWithColumn(position, playersList[0], 2)
+    position = authority.MoveWithColumn(position, playersList[1], 2)
+    position = authority.MoveWithColumn(position, playersList[0], 2)
+    position = authority.MoveWithColumn(position, playersList[1], 2)
+    position = authority.MoveWithColumn(position, playersList[0], 2)
+    position = authority.MoveWithColumn(position, playersList[1], 2)
+
+    print ("position =\n{}".format(position))
+
+if __name__ == '__main__':
+    main()
+
 
