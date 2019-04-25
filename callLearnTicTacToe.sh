@@ -6,7 +6,7 @@ python learnTicTacToe.py \
 	--outputDirectory=outputs/ \
 	--proportionOfRandomInitialPositions=0.5 \
 	--maximumNumberOfMovesForInitialPositions=8 \
-	--numberOfInitialPositions=128 \
+	--numberOfInitialPositions=256 \
 	--numberOfGamesForEvaluation=11 \
 	--weightForTheValueLoss=0.0 \
 	--numberOfStandardDeviationsBelowAverageForValueEstimate=0.0 \

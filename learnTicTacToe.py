@@ -252,7 +252,7 @@ def main():
             authority,
             neuralNetwork,
             True,
-            1.0,
+            0.1,
             numberOfGames=numberOfGames,
             moveChoiceMode=moveChoiceMode,
             numberOfGamesForMoveEvaluation=21  # ignored by SoftMax
