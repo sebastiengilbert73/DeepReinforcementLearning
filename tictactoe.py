@@ -170,7 +170,7 @@ def main():
     moveTensorShape = authority.MoveTensorShape()
     playersList = authority.PlayersList()
     initialPosition = authority.InitialPosition()
-    neuralNetwork = neuralNetwork = policy.NeuralNetwork(positionTensorShape,
+    neuralNetwork = policy.NeuralNetwork(positionTensorShape,
                                          '[(3, 16), (3, 16), (3, 16)]',
                                          moveTensorShape)
     neuralNetwork.load_state_dict(torch.load('/home/sebastien/projects/DeepReinforcementLearning/outputs/neuralNet_tictactoe_499.pth'))

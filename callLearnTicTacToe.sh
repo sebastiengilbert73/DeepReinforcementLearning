@@ -1,6 +1,6 @@
 #! /bin/bash
 python learnTicTacToe.py \
-	--learningRate=0.001 \
+	--learningRate=0.003 \
 	--numberOfEpochs=1000 \
 	--minibatchSize=16 \
 	--outputDirectory=outputs/ \
