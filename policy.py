@@ -898,8 +898,9 @@ def GenerateMoveStatistics(playerList,
                             ):
     # Create initial positions
     initialPositions = additionalStartingPositionsList
-    randomInitialPositionsNumber = int(proportionOfRandomInitialPositions * numberOfInitialPositions)
-    createdRandomInitialPositionsNumber = 0
+    #randomInitialPositionsNumber = int(proportionOfRandomInitialPositions * numberOfInitialPositions)
+    selfPlayInitialPositions = int( (1 - proportionOfRandomInitialPositions) * numberOfInitialPositions)
+    """createdRandomInitialPositionsNumber = 0
     while createdRandomInitialPositionsNumber < randomInitialPositionsNumber:
         numberOfMoves = random.randint(0, maximumNumberOfMovesForInitialPositions)
         if numberOfMoves % 2 == 1:
@@ -916,9 +917,11 @@ def GenerateMoveStatistics(playerList,
         if winner is None:
             initialPositions.append(positionTensor.clone())
             createdRandomInitialPositionsNumber += 1
-
-    # Complete with initial positions obtained through self-play
-    while len(initialPositions) < numberOfInitialPositions:
+    """
+    # Initial positions obtained through self-play
+    #while len(initialPositions) < numberOfInitialPositions:
+    createdSelfPlayInitialPositions = 0
+    while createdSelfPlayInitialPositions < selfPlayInitialPositions:
         numberOfMoves = random.randint(0, maximumNumberOfMovesForInitialPositions)
         if numberOfMoves % 2 == 1:
             numberOfMoves += 1 # Make sure the last player to have played is playerList[1]
@@ -926,7 +929,6 @@ def GenerateMoveStatistics(playerList,
         winner = None
         moveNdx = 0
         while moveNdx < numberOfMoves and winner is None:
-            #player = playerList[moveNdx % 2]
             chosenMoveTensor = neuralNetwork.ChooseAMove(positionTensor, playerList[0], authority,
                                                          preApplySoftMax=True, softMaxTemperature=1.0,
                                                          epsilon=epsilon)
@@ -935,6 +937,24 @@ def GenerateMoveStatistics(playerList,
             positionTensor = authority.SwapPositions(positionTensor, playerList[0], playerList[1])
         if winner is None:
             initialPositions.append(positionTensor.clone())
+            createdSelfPlayInitialPositions += 1
+
+    while len(initialPositions) < numberOfInitialPositions: # Complete with random games
+        numberOfMoves = random.randint(0, maximumNumberOfMovesForInitialPositions)
+        if numberOfMoves % 2 == 1:
+            numberOfMoves += 1  # Make sure the last player to have played is playerList[1]
+        positionTensor = authority.InitialPosition()
+        winner = None
+        moveNdx = 0
+        while moveNdx < numberOfMoves and winner is None:
+            player = playerList[moveNdx % 2]
+            # print ("GenerateMoveStatistics(): player = {}".format(player))
+            randomMoveTensor = ChooseARandomMove(positionTensor, player, authority)
+            positionTensor, winner = authority.Move(positionTensor, player, randomMoveTensor)
+            moveNdx += 1
+        if winner is None:
+            initialPositions.append(positionTensor.clone())
+
 
     # For each initial position, evaluate the value of each possible move through self-play
     positionMoveStatistics = list()
