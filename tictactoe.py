@@ -1,5 +1,6 @@
 import torch
 import policy
+import ast
 
 firstPlayer = 'X'
 secondPlayer = 'O'
@@ -9,7 +10,7 @@ secondPlayer = 'O'
 
 class Authority():
     # Must implement:
-    #   Move(self, currentPositionTensor, player, moveTensor),
+    #   Move(self, currentPositionTensor, player, moveTensor)
     #   Winner(self, positionTensor, lastPlayerWhoPlayed)
     #   LegalMovesMask(self, positionTensor, player)
     #   PositionTensorShape(self)
@@ -17,6 +18,9 @@ class Authority():
     #   InitialPosition(self)
     #   SwapPositions(self, positionTensor, player1, player2)
     #   PlayersList(self)
+    #   MoveWithString(self, currentPositionTensor, player, dropCoordinatesAsString)
+    #   Display(self, positionTensor)
+
     def __init__(self):
         self.playersList= ['X', 'O']
         self.positionTensorShape = (2, 1, 3, 3)
@@ -94,6 +98,11 @@ class Authority():
         newPositionTensor[self.playerToPlaneIndexDic[player], 0, dropCoordinates[0], dropCoordinates[1]] = 1
         winner = self.Winner(newPositionTensor, player)
         return newPositionTensor, winner
+
+    def MoveWithString(self, currentPositionTensor, player, dropCoordinatesAsString):
+        dropCoordinatesTuple = ast.literal_eval(dropCoordinatesAsString)
+        print ("MoveWithString(): dropCoordinatesTuple = {}".format(dropCoordinatesTuple))
+        return self.MoveWithCoordinates(currentPositionTensor, player, dropCoordinatesTuple)
 
     def Move(self, currentPositionTensor, player, moveTensor):
         if moveTensor.shape != self.moveTensorShape:
