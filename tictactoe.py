@@ -1,6 +1,7 @@
 import torch
 import policy
 import ast
+import gameAuthority
 
 firstPlayer = 'X'
 secondPlayer = 'O'
@@ -8,7 +9,7 @@ secondPlayer = 'O'
 #positionTensorShape = (2, 1, 3, 3)
 #moveTensorShape = (1, 1, 3, 3)
 
-class Authority():
+class Authority(gameAuthority.GameAuthority):
     # Must implement:
     #   Move(self, currentPositionTensor, player, moveTensor)
     #   Winner(self, positionTensor, lastPlayerWhoPlayed)
