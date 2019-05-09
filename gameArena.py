@@ -11,6 +11,7 @@ parser.add_argument('--opponentPlaysFirst', action='store_true', help='Let the o
 parser.add_argument('--numberOfGamesForMoveEvaluation', type=int, help='The number of simulated games played by the neural network to evaluate the moves. Default: 31', default=31)
 parser.add_argument('--softMaxTemperature', type=float, help='The softMax temperature used by the neural network while simulating the games. Default: 1.0', default=1.0)
 parser.add_argument('--displayExpectedMoveValues', action='store_true', help='Display the expected move values, the standard deviations and the legal moves mask')
+parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The maximum number of moves for exhaustive search. Default: 2', default=2)
 args = parser.parse_args()
 
 def DisplayExpectedMoveValues(moveValuesTensor, standardDeviationTensor, legalMovesMask, chosenMoveTensor):
@@ -27,7 +28,8 @@ def AskTheNeuralNetworkToChooseAMove(
             numberOfGamesForMoveEvaluation,
             softMaxTemperature,
             epsilon,
-            displayExpectedMoveValues=False):
+            displayExpectedMoveValues,
+            depthOfExhaustiveSearch):
     moveValuesTensor, standardDeviationTensor, legalMovesMask = policy.PositionExpectedMoveValues(
         playersList,
         authority,
@@ -35,7 +37,8 @@ def AskTheNeuralNetworkToChooseAMove(
         positionTensor,
         numberOfGamesForMoveEvaluation,
         softMaxTemperature,
-        epsilon
+        epsilon,
+        depthOfExhaustiveSearch
         )
     chosenMoveTensor = torch.zeros(authority.MoveTensorShape())
     highestValue = -1E9
@@ -86,7 +89,8 @@ def main():
             args.numberOfGamesForMoveEvaluation,
             args.softMaxTemperature,
             epsilon=0,
-            displayExpectedMoveValues=args.displayExpectedMoveValues)
+            displayExpectedMoveValues=args.displayExpectedMoveValues,
+            depthOfExhaustiveSearch=args.depthOfExhaustiveSearch)
         positionTensor, winner = authority.Move(positionTensor, playersList[0], moveTensor)
         numberOfPlayedMoves += 1
         player = playersList[numberOfPlayedMoves % 2]
@@ -110,10 +114,13 @@ def main():
                 args.numberOfGamesForMoveEvaluation,
                 args.softMaxTemperature,
                 epsilon=0,
-                displayExpectedMoveValues=args.displayExpectedMoveValues)
+                displayExpectedMoveValues=args.displayExpectedMoveValues,
+                depthOfExhaustiveSearch=args.depthOfExhaustiveSearch)
             positionTensor, winner = authority.Move(positionTensor, playersList[0], moveTensor)
             if player is playersList[1]:
                 positionTensor = authority.SwapPositions(positionTensor, playersList[0], playersList[1])
+                if winner is playersList[0]:
+                    winner = playersList[1]
             numberOfPlayedMoves += 1
             player = playersList[numberOfPlayedMoves % 2]
             authority.Display(positionTensor)

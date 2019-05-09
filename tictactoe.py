@@ -184,7 +184,7 @@ def main():
                                          '[(3, 16), (3, 16), (3, 16)]',
                                          moveTensorShape)
     neuralNetwork.load_state_dict(torch.load('/home/sebastien/projects/DeepReinforcementLearning/outputs/neuralNet_tictactoe_499.pth'))
-    averageReward, winRate, drawRate, lossRate, losingGamesPositionsListList = \
+    """averageReward, winRate, drawRate, lossRate, losingGamesPositionsListList = \
         policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
                              playersList,
                              authority,
@@ -203,53 +203,61 @@ def main():
             print ("positionNdx = {}:".format(positionNdx))
             print (losingGamePositionsList[positionNdx])
     """
+
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 1))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 2))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 0))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 2))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 0))
     initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 1))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (2, 0))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 1))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 0))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (2, 1))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 2))
 
-    moveValuesTensor, standardDeviationTensor, legalMovesMask = policy.PositionExpectedMoveValues(
+
+    """(rewardAverage, rewardStandardDeviation) = policy.RewardStatistics(
+        initialPosition,
+        1,
+        2,
+        playersList,
+        playersList[0],
+        authority,
+        neuralNetwork,
+        softMaxTemperatureForSelfPlayEvaluation=0.3,
+        epsilon=0,
+        numberOfGamesForEvaluation=11
+    )
+    print ("({}, {})".format(rewardAverage, rewardStandardDeviation) )
+    """
+    """reward = policy.SimulateGameAndGetReward(playersList,
+                                             initialPosition,
+                                             playersList[1],
+                                             authority,
+                                             neuralNetwork,
+                                             preApplySoftMax=True,
+                                             softMaxTemperature=0.01,
+                                             epsilon=0
+                                             )
+    print ("reward = {}".format(reward))
+    """
+    numberOfGamesForEvaluation = 31
+    softMaxTemperatureForSelfPlayEvaluation = 0.3
+    epsilon = 0
+    depthOfExhaustiveSearch = 1
+    (moveValuesTensor, standardDeviationTensor, legalMovesMask) = policy.PositionExpectedMoveValues(
         playersList,
         authority,
         neuralNetwork,
         initialPosition,
-        numberOfGamesForEvaluation=11,
-        softMaxTemperatureForSelfPlayEvaluation=0.1
-        )
-    print ("moveValuesTensor = \n{}".format(moveValuesTensor))
+        numberOfGamesForEvaluation,
+        softMaxTemperatureForSelfPlayEvaluation,
+        epsilon,
+        depthOfExhaustiveSearch
+    )
+
+    print ("moveValuesTensor =\n{}".format(moveValuesTensor))
     print ("standardDeviationTensor =\n{}".format(standardDeviationTensor))
     print ("legalMovesMask = \n{}".format(legalMovesMask))
-
-    chosenMove = neuralNetwork.ChooseAMove(
-        initialPosition,
-        playersList[0],
-        authority,
-        preApplySoftMax=True,
-        softMaxTemperature=1.0,
-
-    )
-    print ("chosenMove =\n{}".format(chosenMove))
-
-    highestProbabilityMove = neuralNetwork.HighestProbabilityMove(
-        initialPosition, playersList[0], authority)
-    print ("highestProbabilityMove =\n{}".format(highestProbabilityMove))
-    """
-    """positionMoveStatisticsList = policy.GenerateMoveStatistics(playersList,
-                           authority,
-                           neuralNetwork,
-                           proportionOfRandomInitialPositions=0.5,
-                           maximumNumberOfMovesForInitialPositions=8,
-                           numberOfInitialPositions=2,
-                           numberOfGamesForEvaluation=11,
-                           softMaxTemperatureForSelfPlayEvaluation=1.0
-                           )
-    print ("main(): positionMoveStatisticsList = {}".format(positionMoveStatisticsList))
-    """
 
 if __name__ == '__main__':
     main()

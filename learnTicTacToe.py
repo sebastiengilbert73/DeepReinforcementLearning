@@ -21,6 +21,7 @@ parser.add_argument('--numberOfStandardDeviationsBelowAverageForValueEstimate', 
 parser.add_argument('--softMaxTemperatureForSelfPlayEvaluation', help='The softmax temperature when evaluation through self-play. Default: 0.3', type=float, default=0.3)
 parser.add_argument('--averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic', help='The dictionary giving the softMax temperature as a function of the average training loss. Default: None (meaning constant softMax temperature)', default=None)
 parser.add_argument('--epsilon', help='Probability to do a random move while generating move statistics. Default: 0.1', type=float, default=0.1)
+parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The depth of exhaustive search, when generating move statitics. Default: 2', default=2)
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
 
@@ -133,6 +134,7 @@ def main():
             args.numberOfGamesForEvaluation,
             softMaxTemperatureForSelfPlayEvaluation,
             args.epsilon,
+            args.depthOfExhaustiveSearch,
             losingGamesAgainstRandomPlayerPositionsList
         )
         # (initialPosition, averageValuesTensor, standardDeviationTensor, legalMovesNMask)
