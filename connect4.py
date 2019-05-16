@@ -1,16 +1,19 @@
 import torch
 import policy
+import gameAuthority
 
-class Authority():
+class Authority(gameAuthority.GameAuthority):
     # Must implement:
     #   Move(self, currentPositionTensor, player, moveTensor),
-    #   Winner(self, positionTensor, lastPlayerWhoPlayed)
-    #   LegalMovesMask(self, positionTensor, player)
-    #   PositionTensorShape(self)
-    #   MoveTensorShape(self)
-    #   InitialPosition(self)
-    #   SwapPositions(self, positionTensor, player1, player2)
-    #   PlayersList(self)
+    #   Winner(self, positionTensor, lastPlayerWhoPlayed) done
+    #   LegalMovesMask(self, positionTensor, player) done
+    #   PositionTensorShape(self) done
+    #   MoveTensorShape(self) done
+    #   InitialPosition(self) done
+    #   SwapPositions(self, positionTensor, player1, player2) done
+    #   PlayersList(self) done
+    #   MoveWithString(self, currentPositionTensor, player, dropCoordinatesAsString) done
+    #   Display(self, positionTensor)
 
     def __init__(self, numberOfRows=6, numberOfColumns=7):
         if numberOfColumns < 4 or numberOfRows < 4:
@@ -85,6 +88,25 @@ class Authority():
         newPositionTensor[self.playerToPlaneIndexDic[player], 0, topAvailableRow, dropColumn] = 1.0
         return newPositionTensor
 
+    def Move(self, currentPositionTensor, player, moveTensor):
+        if moveTensor.shape != self.moveTensorShape:
+            raise ValueError("Authority.Move(): moveTensor.shape ({}) is not {}".format(moveTensor.shape, self.moveTensorShape))
+        numberOfOnes = 0
+        dropColumn = None
+
+        for column in range(self.numberOfColumns):
+            if moveTensor[0, 0, 0, column] == 1:
+                numberOfOnes += 1
+                dropColumn = column
+        if numberOfOnes != 1:
+            raise ValueError("Authority.Move(): The number of ones in moveTensor ({}) is not one".format(numberOfOnes))
+        return self.MoveWithColumn(currentPositionTensor, player, dropColumn)
+
+    def MoveWithString(self, currentPositionTensor, player, dropCoordinatesAsString):
+        dropColumn = int(dropCoordinatesAsString)
+        if dropColumn < 0 or dropColumn >= self.numberOfColumns:
+            raise ValueError("Authority.MoveWithString(): The drop column ({}) is not in [0, {}]".format(dropColumn, self.numberOfColumns - 1))
+        return self.MoveWithColumn(currentPositionTensor, player, dropColumn)
 
     def TopAvailableRow(self, positionTensor, dropColumn):
         # Must return None if the column is already filled
@@ -108,6 +130,54 @@ class Authority():
         initialPosition = torch.zeros(self.positionTensorShape)
         return initialPosition
 
+    def MoveTensorShape(self):
+        return self.moveTensorShape
+
+    def PositionTensorShape(self):
+        return self.positionTensorShape
+
+    def Winner(self, positionTensor, lastPlayerWhoPlayed):
+        lastPlayerPlane = self.playerToPlaneIndexDic[lastPlayerWhoPlayed]
+        if self.ThereIs4InARow(lastPlayerPlane, positionTensor):
+            return lastPlayerWhoPlayed
+        else:
+            if torch.nonzero(positionTensor).size(0) == self.numberOfRows * self.numberOfColumns: # All spots are occupied
+                return 'draw'
+            else:
+                return None
+
+    def LegalMovesMask(self, positionTensor, player):
+        if positionTensor.shape != self.positionTensorShape:
+            raise ValueError("Authority.LegalMovesMask(): The shape of positionTensor ({}) is not {}".format(
+                positionTensor.shape, self.positionTensorShape))
+        legalMovesMask = torch.zeros(self.moveTensorShape).byte() + 1  # Initialized with ones, i.e legal moves
+        for row in range(self.numberOfRows):
+            for column in range(self.numberOfColumns):
+                if positionTensor[0, 0, row, column] != 0 or positionTensor[1, 0, row, column] != 0:
+                    legalMovesMask[0, 0, row, column] = 0
+        return legalMovesMask
+
+    def SwapPositions(self, positionTensor, player1, player2):
+        player1PlaneNdx = self.playerToPlaneIndexDic[player1]
+        player2PlaneNdx = self.playerToPlaneIndexDic[player2]
+        swappedPosition = positionTensor.clone()
+        swappedPosition[player1PlaneNdx] = positionTensor[player2PlaneNdx]
+        swappedPosition[player2PlaneNdx] = positionTensor[player1PlaneNdx]
+        return swappedPosition
+
+    def Display(self, positionTensor):
+        planeNdxToSymbolDic = {0: 'y', 1: 'r'}
+        for row in range(self.numberOfRows):
+            for column in range(self.numberOfColumns):
+                if positionTensor[0, 0, row, column] > 0:
+                    print ('{} '.format(planeNdxToSymbolDic[0]), end='')
+                elif positionTensor[1, 0, row, column] > 0:
+                    print ('{} '.format(planeNdxToSymbolDic[1]), end='')
+                else:
+                    print ('. ', end='')
+            print('\n')
+
+
 
 def main():
     print ("connect4.py main()")
@@ -122,6 +192,7 @@ def main():
     position = authority.MoveWithColumn(position, playersList[1], 2)
 
     print ("position =\n{}".format(position))
+    authority.Display(position)
 
 if __name__ == '__main__':
     main()
