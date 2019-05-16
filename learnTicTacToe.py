@@ -245,19 +245,22 @@ def main():
         if epoch % 20 == 0:
             moveChoiceMode = 'ExpectedMoveValuesThroughSelfPlay'
             numberOfGames = 100
+            depthOfExhaustiveSearch = 2
         else:
             moveChoiceMode = 'SoftMax'
             numberOfGames = 300
+            depthOfExhaustiveSearch = 1
         (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
             policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
             playerList,
             authority,
             neuralNetwork,
             True,
-            0.1,
+            softMaxTemperature=softMaxTemperatureForSelfPlayEvaluation,
             numberOfGames=numberOfGames,
             moveChoiceMode=moveChoiceMode,
-            numberOfGamesForMoveEvaluation=21  # ignored by SoftMax
+            numberOfGamesForMoveEvaluation=41,  # ignored by SoftMax
+            depthOfExhaustiveSearch=depthOfExhaustiveSearch
         )
         print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
             averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))

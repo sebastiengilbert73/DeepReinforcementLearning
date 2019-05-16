@@ -183,7 +183,7 @@ def main():
     neuralNetwork = policy.NeuralNetwork(positionTensorShape,
                                          '[(3, 16), (3, 16), (3, 16)]',
                                          moveTensorShape)
-    neuralNetwork.load_state_dict(torch.load('/home/sebastien/projects/DeepReinforcementLearning/outputs/neuralNet_tictactoe_499.pth'))
+    neuralNetwork.load_state_dict(torch.load('/home/sebastien/projects/DeepReinforcementLearning/outputs/neuralNet_tictactoe_106.pth'))
     """averageReward, winRate, drawRate, lossRate, losingGamesPositionsListList = \
         policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
                              playersList,
@@ -206,9 +206,9 @@ def main():
 
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 1))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 2))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 0))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 1))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 2))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 0))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 1))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 0))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (2, 1))
@@ -240,10 +240,10 @@ def main():
                                              )
     print ("reward = {}".format(reward))
     """
-    numberOfGamesForEvaluation = 31
-    softMaxTemperatureForSelfPlayEvaluation = 0.3
+    numberOfGamesForEvaluation = 41
+    softMaxTemperatureForSelfPlayEvaluation = 1.0
     epsilon = 0
-    depthOfExhaustiveSearch = 1
+    depthOfExhaustiveSearch = 2
     (moveValuesTensor, standardDeviationTensor, legalMovesMask) = policy.PositionExpectedMoveValues(
         playersList,
         authority,
@@ -258,6 +258,30 @@ def main():
     print ("moveValuesTensor =\n{}".format(moveValuesTensor))
     print ("standardDeviationTensor =\n{}".format(standardDeviationTensor))
     print ("legalMovesMask = \n{}".format(legalMovesMask))
+
+    """
+    numberOfGames = 100
+    depthOfExhaustiveSearch = 2
+    (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
+        policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
+            playersList,
+            authority,
+            neuralNetwork,
+            True,
+            0.1,
+            numberOfGames=numberOfGames,
+            moveChoiceMode='ExpectedMoveValuesThroughSelfPlay',
+            numberOfGamesForMoveEvaluation=21,  # ignored by SoftMax
+            depthOfExhaustiveSearch=depthOfExhaustiveSearch
+        )
+    print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
+        averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
+
+    for losingGamePositionsList in losingGamePositionsListList:
+        print ("_______________________")
+        for position in losingGamePositionsList:
+            print ("\n{}".format(position))
+    """
 
 if __name__ == '__main__':
     main()

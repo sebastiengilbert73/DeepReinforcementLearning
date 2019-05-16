@@ -952,6 +952,7 @@ def AverageRewardAgainstARandomPlayerKeepLosingGames(
                              numberOfGames,
                              moveChoiceMode='SoftMax',
                              numberOfGamesForMoveEvaluation=31,
+                             depthOfExhaustiveSearch=2
                              ):
     rewardSum = 0
     numberOfWins = 0
@@ -995,7 +996,8 @@ def AverageRewardAgainstARandomPlayerKeepLosingGames(
                         positionTensor,
                         numberOfGamesForMoveEvaluation,
                         softMaxTemperature,
-                        epsilon=0
+                        epsilon=0,
+                        depthOfExhaustiveSearch=depthOfExhaustiveSearch
                     )
                     chosenMoveTensor = torch.zeros(authority.MoveTensorShape())
                     highestValue = -1E9
