@@ -115,6 +115,28 @@ class NeuralNetwork(torch.nn.Module):
                 torch.nn.ReLU()
             )
             self.lastLayerInputNumberOfChannels = 16
+        elif ast.literal_eval(bodyStructure) == [(5, 16), (5, 16), (5, 16)]:
+            self.bodyStructure = torch.nn.Sequential(
+                torch.nn.Conv3d(in_channels=inputTensorSize[0], out_channels=16,
+                                kernel_size=5,
+                                padding=2),
+                torch.nn.BatchNorm3d(16, eps=1e-05, momentum=0.1, affine=True,
+                                     track_running_stats=True),
+                torch.nn.ReLU(),
+                torch.nn.Conv3d(in_channels=16, out_channels=16,
+                                kernel_size=5,
+                                padding=2),
+                torch.nn.BatchNorm3d(16, eps=1e-05, momentum=0.1, affine=True,
+                                     track_running_stats=True),
+                torch.nn.ReLU(),
+                torch.nn.Conv3d(in_channels=16, out_channels=16,
+                                kernel_size=5,
+                                padding=2),
+                torch.nn.BatchNorm3d(16, eps=1e-05, momentum=0.1, affine=True,
+                                     track_running_stats=True),
+                torch.nn.ReLU()
+            )
+            self.lastLayerInputNumberOfChannels = 16
         else:
             raise NotImplementedError("NeuralNetwork.__init__(): Unknown body structure '{}'".format(bodyStructure))
 
