@@ -33,7 +33,7 @@ class Authority(gameAuthority.GameAuthority):
             raise ValueError("Authority.ThereIs4InARow(): The shape of positionTensor ({}) is not {}".format(positionTensor.shape, self.positionTensorShape))
         # Horizontal lines
         for row in range(self.numberOfRows):
-            for leftColumn in range(self.numberOfColumns - 4):
+            for leftColumn in range(self.numberOfColumns - 3):
                 thereIs4 = True
                 for column in range(leftColumn, leftColumn + 4):
                     if positionTensor[planeNdx, 0, row, column] != 1:
@@ -43,7 +43,7 @@ class Authority(gameAuthority.GameAuthority):
 
         # Vertical lines
         for column in range(self.numberOfColumns):
-            for topRow in range(self.numberOfRows - 4):
+            for topRow in range(self.numberOfRows - 3):
                 thereIs4 = True
                 for row in range(topRow, topRow + 4):
                     if positionTensor[planeNdx, 0, row, column] != 1:
@@ -75,10 +75,12 @@ class Authority(gameAuthority.GameAuthority):
         return False
 
     def MoveWithColumn(self, currentPositionTensor, player, dropColumn):
+        #print ("MoveWithColumn(): currentPositionTensor =\n{}".format(currentPositionTensor))
         if currentPositionTensor.shape != self.positionTensorShape: # (C, D, H, W)
             raise ValueError("Authority.MoveWithColumn(): The shape of currentPositionTensor {} is not {}".format(currentPositionTensor.shape, self.positionTensorShape))
         if dropColumn >= self.numberOfColumns:
             raise ValueError("Authority.MoveWithColumn(): dropColumn ({}) is >= self.numberOfColumns ({})".format(dropColumn, self.numberOfColumns))
+        #print ("Authority.MoveWithColumn(): currentPositionTensor.shape = {}".format(currentPositionTensor.shape))
         newPositionTensor = currentPositionTensor.clone()
         topAvailableRow = self.TopAvailableRow(currentPositionTensor, dropColumn)
         if topAvailableRow == None:
@@ -86,7 +88,9 @@ class Authority(gameAuthority.GameAuthority):
                 "Authority.MoveWithColumn(): Attempt to drop in column {}, while it is already filled".format(
                     dropColumn))
         newPositionTensor[self.playerToPlaneIndexDic[player], 0, topAvailableRow, dropColumn] = 1.0
-        return newPositionTensor
+        #print ("Authority.MoveWithColumn(): newPositionTensor.shape = {}".format(newPositionTensor.shape))
+        winner = self.Winner(newPositionTensor, player)
+        return newPositionTensor, winner
 
     def Move(self, currentPositionTensor, player, moveTensor):
         if moveTensor.shape != self.moveTensorShape:
@@ -151,21 +155,31 @@ class Authority(gameAuthority.GameAuthority):
             raise ValueError("Authority.LegalMovesMask(): The shape of positionTensor ({}) is not {}".format(
                 positionTensor.shape, self.positionTensorShape))
         legalMovesMask = torch.zeros(self.moveTensorShape).byte() + 1  # Initialized with ones, i.e legal moves
-        for row in range(self.numberOfRows):
-            for column in range(self.numberOfColumns):
-                if positionTensor[0, 0, row, column] != 0 or positionTensor[1, 0, row, column] != 0:
-                    legalMovesMask[0, 0, row, column] = 0
+        for column in range(self.numberOfColumns):
+            if positionTensor[0, 0, 0, column] != 0 or positionTensor[1, 0, 0, column] != 0:
+                legalMovesMask[0, 0, 0, column] = 0
         return legalMovesMask
 
     def SwapPositions(self, positionTensor, player1, player2):
         player1PlaneNdx = self.playerToPlaneIndexDic[player1]
         player2PlaneNdx = self.playerToPlaneIndexDic[player2]
-        swappedPosition = positionTensor.clone()
+        """swappedPosition = positionTensor.clone()
         swappedPosition[player1PlaneNdx] = positionTensor[player2PlaneNdx]
         swappedPosition[player2PlaneNdx] = positionTensor[player1PlaneNdx]
+        """
+        #swappedPosition = torch.index_select(positionTensor, 0, torch.LongTensor([player2PlaneNdx, player1PlaneNdx]))
+        swappedPosition = torch.zeros(self.positionTensorShape)
+        nonZeroCoordsTensor = torch.nonzero(positionTensor)
+        for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
+            nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+            if nonZeroCoords[0] == player1PlaneNdx:
+                swappedPosition[player2PlaneNdx, nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 1.0
+            else:
+                swappedPosition[player1PlaneNdx, nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 1.0
         return swappedPosition
 
     def Display(self, positionTensor):
+        print ("Authority.Display(): positionTensor =\n{}".format(positionTensor))
         planeNdxToSymbolDic = {0: 'y', 1: 'r'}
         for row in range(self.numberOfRows):
             for column in range(self.numberOfColumns):
@@ -184,15 +198,25 @@ def main():
     authority = Authority()
     playersList = authority.PlayersList()
     position = authority.InitialPosition()
-    position = authority.MoveWithColumn(position, playersList[0], 2)
-    position = authority.MoveWithColumn(position, playersList[1], 2)
-    position = authority.MoveWithColumn(position, playersList[0], 2)
-    position = authority.MoveWithColumn(position, playersList[1], 2)
-    position = authority.MoveWithColumn(position, playersList[0], 2)
-    position = authority.MoveWithColumn(position, playersList[1], 2)
+    #position, winner = authority.MoveWithColumn(position, playersList[0], 2)
+    #position, winner = authority.MoveWithColumn(position, playersList[1], 2)
+    #position, winner = authority.MoveWithColumn(position, playersList[0], 2)
+    #position, winner = authority.MoveWithColumn(position, playersList[1], 2)
+    position, winner = authority.MoveWithColumn(position, playersList[0], 6)
+    position, winner = authority.MoveWithColumn(position, playersList[1], 5)
+    position, winner = authority.MoveWithColumn(position, playersList[0], 5)
+    position, winner = authority.MoveWithColumn(position, playersList[1], 4)
+    position, winner = authority.MoveWithColumn(position, playersList[1], 4)
+    position, winner = authority.MoveWithColumn(position, playersList[0], 4)
+    position, winner = authority.MoveWithColumn(position, playersList[0], 3)
+    position, winner = authority.MoveWithColumn(position, playersList[1], 3)
+    position, winner = authority.MoveWithColumn(position, playersList[1], 3)
+    position, winner = authority.MoveWithColumn(position, playersList[0], 3)
+
 
     print ("position =\n{}".format(position))
     authority.Display(position)
+    print ("winner = {}".format(winner))
 
 if __name__ == '__main__':
     main()
