@@ -1,11 +1,13 @@
 import argparse
 import torch
+import time
 import policy
 import tictactoe
+import connect4
 
 parser = argparse.ArgumentParser()
 parser.add_argument('game', help='The game you want to play')
-parser.add_argument('neuralNetwork', help='The filepath to the opponent neural network')
+parser.add_argument('--neuralNetwork', help="The filepath to the opponent neural network. If None, randomly initialized. Default: None", default=None)
 parser.add_argument('networkBodyArchitecture', help="The body architecture. Ex.: '[(3, 16), (3, 16), (3, 16)]'")
 parser.add_argument('--opponentPlaysFirst', action='store_true', help='Let the opponent neural network play first')
 parser.add_argument('--numberOfGamesForMoveEvaluation', type=int, help='The number of simulated games played by the neural network to evaluate the moves. Default: 31', default=31)
@@ -66,6 +68,8 @@ def main():
     # Create the game authority
     if args.game == 'tictactoe':
         authority = tictactoe.Authority()
+    elif args.game == 'connect4':
+        authority = connect4.Authority()
     else:
         raise NotImplementedError("main(): unknown game '{}'".format(args.game))
 
@@ -74,13 +78,16 @@ def main():
     moveTensorShape = authority.MoveTensorShape()
 
     neuralNetwork = policy.NeuralNetwork(positionTensorShape, args.networkBodyArchitecture, moveTensorShape)
-    neuralNetwork.load_state_dict(torch.load(args.neuralNetwork))
+    if args.neuralNetwork is not None:
+        neuralNetwork.load_state_dict(torch.load(args.neuralNetwork))
     winner = None
     numberOfPlayedMoves = 0
     player = playersList[numberOfPlayedMoves % 2]
     positionTensor = authority.InitialPosition()
+    humanPlayerTurn = 0
 
     if args.opponentPlaysFirst:
+        humanPlayerTurn = 1
         moveTensor = AskTheNeuralNetworkToChooseAMove(
             playersList,
             authority,
@@ -92,20 +99,23 @@ def main():
             displayExpectedMoveValues=args.displayExpectedMoveValues,
             depthOfExhaustiveSearch=args.depthOfExhaustiveSearch)
         positionTensor, winner = authority.Move(positionTensor, playersList[0], moveTensor)
-        numberOfPlayedMoves += 1
+        numberOfPlayedMoves = 1
         player = playersList[numberOfPlayedMoves % 2]
     authority.Display(positionTensor)
 
     while winner is None:
-        userInput = input ("Your move: ")
-        positionTensor, winner = authority.MoveWithString(positionTensor, player, userInput)
-        numberOfPlayedMoves += 1
-        player = playersList[numberOfPlayedMoves % 2]
-        authority.Display(positionTensor)
+        print ("numberOfPlayedMoves % 2 = {}; humanPlayerTurn = {}".format(numberOfPlayedMoves % 2, humanPlayerTurn))
+        if numberOfPlayedMoves % 2 == humanPlayerTurn:
+            userInput = input ("Your move: ")
+            positionTensor, winner = authority.MoveWithString(positionTensor, player, userInput)
+            numberOfPlayedMoves += 1
+            player = playersList[numberOfPlayedMoves % 2]
+            authority.Display(positionTensor)
 
-        if winner is None:
+        else: # Neural network turn
             if player is playersList[1]:
                 positionTensor = authority.SwapPositions(positionTensor, playersList[0], playersList[1])
+            startTime = time.time()
             moveTensor = AskTheNeuralNetworkToChooseAMove(
                 playersList,
                 authority,
@@ -116,11 +126,14 @@ def main():
                 epsilon=0,
                 displayExpectedMoveValues=args.displayExpectedMoveValues,
                 depthOfExhaustiveSearch=args.depthOfExhaustiveSearch)
+            endTime = time.time()
+            decisionTime = endTime - startTime
+            print ("decisionTime = {}".format(decisionTime))
             positionTensor, winner = authority.Move(positionTensor, playersList[0], moveTensor)
             if player is playersList[1]:
                 positionTensor = authority.SwapPositions(positionTensor, playersList[0], playersList[1])
-                if winner is playersList[0]:
-                    winner = playersList[1]
+            if winner is playersList[0] and player is playersList[1]:
+                winner = playersList[1]
             numberOfPlayedMoves += 1
             player = playersList[numberOfPlayedMoves % 2]
             authority.Display(positionTensor)
