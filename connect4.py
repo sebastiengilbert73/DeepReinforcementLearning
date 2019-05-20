@@ -31,7 +31,56 @@ class Authority(gameAuthority.GameAuthority):
     def ThereIs4InARow(self, planeNdx, positionTensor):
         if positionTensor.shape != self.positionTensorShape: # (C, D, H, W)
             raise ValueError("Authority.ThereIs4InARow(): The shape of positionTensor ({}) is not {}".format(positionTensor.shape, self.positionTensorShape))
-        # Horizontal lines
+
+        for row in range(self.numberOfRows):
+            for column in range(self.numberOfColumns):
+                # Left end of a horizontal line
+                if column < self.numberOfColumns - 3:
+                    thereIsAHorizontalLine = True
+                    deltaColumn = 0
+                    while deltaColumn < 4 and thereIsAHorizontalLine:
+                        if positionTensor[planeNdx, 0, row , column + deltaColumn] != 1:
+                            thereIsAHorizontalLine = False
+                        deltaColumn += 1
+                    if thereIsAHorizontalLine:
+                        return True
+
+                # Upper end of a vertical line
+                if row < self.numberOfRows - 3:
+                    thereIsAVerticalLine = True
+                    deltaRow = 0
+                    while deltaRow < 4 and thereIsAVerticalLine:
+                        if positionTensor[planeNdx, 0, row + deltaRow, column] != 1:
+                            thereIsAVerticalLine = False
+                        deltaRow += 1
+                    if thereIsAVerticalLine:
+                        return True
+
+                # North-West end of a \
+                if row < self.numberOfRows - 3 and column < self.numberOfColumns - 3:
+                    thereIsABackSlash = True
+                    deltaRowColumn = 0
+                    while deltaRowColumn < 4 and thereIsABackSlash:
+                        if positionTensor[planeNdx, 0, row + deltaRowColumn, column + deltaRowColumn] != 1:
+                            thereIsABackSlash = False
+                        deltaRowColumn += 1
+                    if thereIsABackSlash:
+                        return True
+
+                # South-West end of a /
+                if row < self.numberOfRows - 3 and column >= 3:
+                    thereIsASlash = True
+                    deltaRowColumn = 0
+                    while deltaRowColumn < 4 and thereIsASlash:
+                        if positionTensor[planeNdx, 0, row + deltaRowColumn, column - deltaRowColumn] != 1:
+                            thereIsASlash = False
+                        deltaRowColumn += 1
+                    if thereIsASlash:
+                        return True
+        # Otherwise
+        return  False
+
+        """# Horizontal lines
         for row in range(self.numberOfRows):
             for leftColumn in range(self.numberOfColumns - 3):
                 thereIs4 = True
@@ -73,6 +122,8 @@ class Authority(gameAuthority.GameAuthority):
 
         # Otherwise
         return False
+        """
+
 
     def MoveWithColumn(self, currentPositionTensor, player, dropColumn):
         #print ("MoveWithColumn(): currentPositionTensor =\n{}".format(currentPositionTensor))
@@ -167,8 +218,8 @@ class Authority(gameAuthority.GameAuthority):
         swappedPosition[player1PlaneNdx] = positionTensor[player2PlaneNdx]
         swappedPosition[player2PlaneNdx] = positionTensor[player1PlaneNdx]
         """
-        #swappedPosition = torch.index_select(positionTensor, 0, torch.LongTensor([player2PlaneNdx, player1PlaneNdx]))
-        swappedPosition = torch.zeros(self.positionTensorShape)
+        swappedPosition = torch.index_select(positionTensor, 0, torch.LongTensor([player2PlaneNdx, player1PlaneNdx]))
+        """swappedPosition = torch.zeros(self.positionTensorShape)
         nonZeroCoordsTensor = torch.nonzero(positionTensor)
         for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
             nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
@@ -176,6 +227,7 @@ class Authority(gameAuthority.GameAuthority):
                 swappedPosition[player2PlaneNdx, nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 1.0
             else:
                 swappedPosition[player1PlaneNdx, nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 1.0
+        """
         return swappedPosition
 
     def Display(self, positionTensor):
