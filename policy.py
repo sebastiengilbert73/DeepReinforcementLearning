@@ -328,7 +328,8 @@ def SimulateGameAndGetReward(playerList,
                 epsilon=epsilon
             ).detach()
         #print ("SimulateGameAndGetReward(): chosenMoveTensor =\n{}".format(chosenMoveTensor))
-        positionTensor, winner = authority.Move(positionTensor, playerList[0], chosenMoveTensor)
+        #positionTensor, winner = authority.Move(positionTensor, playerList[0], chosenMoveTensor)
+        winner = authority.MoveInPlace(positionTensor, playerList[0], chosenMoveTensor)
         if winner == playerList[0] and player == playerList[1]: # All moves are from the point of view of player0, hence he will always 'win'
             winner = playerList[1]
         moveNdx += 1

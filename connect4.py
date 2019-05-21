@@ -157,6 +157,30 @@ class Authority(gameAuthority.GameAuthority):
             raise ValueError("Authority.Move(): The number of ones in moveTensor ({}) is not one".format(numberOfOnes))
         return self.MoveWithColumn(currentPositionTensor, player, dropColumn)
 
+    def MoveInPlace(self, currentPositionTensor, player, moveTensor):
+        dropColumn = self.DropColumn(moveTensor)
+        topAvailableRow = self.TopAvailableRow(currentPositionTensor, dropColumn)
+        if topAvailableRow == None:
+            raise ValueError(
+                "Authority.MoveInPlace(): Attempt to drop in column {}, while it is already filled".format(
+                    dropColumn))
+        currentPositionTensor[self.playerToPlaneIndexDic[player], 0, topAvailableRow, dropColumn] = 1.0
+        winner = self.Winner(currentPositionTensor, player)
+        return winner
+
+    def DropColumn(self, moveTensor):
+        if moveTensor.shape != self.moveTensorShape:
+            raise ValueError("Authority.DropColumn(): moveTensor.shape ({}) is not {}".format(moveTensor.shape,                                                                                             self.moveTensorShape))
+        numberOfOnes = 0
+        dropColumn = None
+        for column in range(self.numberOfColumns):
+            if moveTensor[0, 0, 0, column] == 1:
+                numberOfOnes += 1
+                dropColumn = column
+        if numberOfOnes != 1:
+            raise ValueError("Authority.DropColumn(): The number of ones in moveTensor ({}) is not one".format(numberOfOnes))
+        return dropColumn
+
     def MoveWithString(self, currentPositionTensor, player, dropCoordinatesAsString):
         dropColumn = int(dropCoordinatesAsString)
         if dropColumn < 0 or dropColumn >= self.numberOfColumns:
@@ -263,9 +287,11 @@ def main():
     position, winner = authority.MoveWithColumn(position, playersList[0], 3)
     position, winner = authority.MoveWithColumn(position, playersList[1], 3)
     position, winner = authority.MoveWithColumn(position, playersList[1], 3)
-    position, winner = authority.MoveWithColumn(position, playersList[0], 3)
+    #position, winner = authority.MoveWithColumn(position, playersList[0], 3)
 
-
+    moveTensor = torch.zeros(authority.MoveTensorShape())
+    moveTensor[0, 0, 0, 3] = 1
+    winner = authority.MoveInPlace(position, 'red', moveTensor)
     print ("position =\n{}".format(position))
     authority.Display(position)
     print ("winner = {}".format(winner))

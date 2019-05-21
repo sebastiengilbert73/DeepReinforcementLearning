@@ -9,7 +9,7 @@ class GameAuthority(abc.ABC):
 
     @abc.abstractmethod
     def Move(self, currentPositionTensor, player, moveTensor):
-        pass
+        pass # return (positionTensor, winner)
 
     @abc.abstractmethod
     def Winner(self, positionTensor, lastPlayerWhoPlayed):
@@ -41,8 +41,12 @@ class GameAuthority(abc.ABC):
 
     @abc.abstractmethod
     def MoveWithString(self, currentPositionTensor, player, dropCoordinatesAsString):
-        pass
+        pass # return (positionTensor, winner)
 
     @abc.abstractmethod
     def Display(self, positionTensor):
         pass
+
+    @abc.abstractmethod
+    def MoveInPlace(self, currentPositionTensor, player, moveTensor):
+        pass # return winner
