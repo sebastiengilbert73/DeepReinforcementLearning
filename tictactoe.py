@@ -119,6 +119,29 @@ class Authority(gameAuthority.GameAuthority):
             raise ValueError("Authority.Move(): The number of ones in moveTensor ({}) is not one".format(numberOfOnes))
         return self.MoveWithCoordinates(currentPositionTensor, player, dropCoordinates)
 
+    """def MoveInPlace(self, currentPositionTensor, player, moveTensor):
+        dropCoordinates = self.DropCoordinates(moveTensor)
+        if currentPositionTensor[0, 0, dropCoordinates[0], dropCoordinates[1]] == 1 or \
+            currentPositionTensor[0, 0, dropCoordinates[0], dropCoordinates[1]] == 1:
+            raise ValueError("MoveInPlace(): Attempt to drop in {} while it is already occupied")
+        currentPositionTensor[self.playerToPlaneIndexDic[player], 0, dropCoordinates[0], dropCoordinates[1]] = 1
+        winner = self.Winner(currentPositionTensor, player)
+        return winner
+    """
+
+    def DropCoordinates(self, moveTensor):
+        numberOfOnes = 0
+        dropCoordinates = None
+        for row in range(3):
+            for column in range(3):
+                if moveTensor[0, 0, row, column] == 1:
+                    numberOfOnes += 1
+                    dropCoordinates = (row, column)
+        if numberOfOnes != 1:
+            raise ValueError("Authority.DropCoordinates(): The number of ones in moveTensor ({}) is not one".format(numberOfOnes))
+        return dropCoordinates
+
+
     def Display(self, positionTensor):
         #print ("Authority.Display(): positionTensor.shape = \n{}".format(positionTensor.shape))
         if positionTensor.shape != self.positionTensorShape: # (C, D, H, W)

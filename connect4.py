@@ -157,7 +157,7 @@ class Authority(gameAuthority.GameAuthority):
             raise ValueError("Authority.Move(): The number of ones in moveTensor ({}) is not one".format(numberOfOnes))
         return self.MoveWithColumn(currentPositionTensor, player, dropColumn)
 
-    def MoveInPlace(self, currentPositionTensor, player, moveTensor):
+        """def MoveInPlace(self, currentPositionTensor, player, moveTensor):
         dropColumn = self.DropColumn(moveTensor)
         topAvailableRow = self.TopAvailableRow(currentPositionTensor, dropColumn)
         if topAvailableRow == None:
@@ -167,6 +167,7 @@ class Authority(gameAuthority.GameAuthority):
         currentPositionTensor[self.playerToPlaneIndexDic[player], 0, topAvailableRow, dropColumn] = 1.0
         winner = self.Winner(currentPositionTensor, player)
         return winner
+        """
 
     def DropColumn(self, moveTensor):
         if moveTensor.shape != self.moveTensorShape:
@@ -273,7 +274,12 @@ def main():
     print ("connect4.py main()")
     authority = Authority()
     playersList = authority.PlayersList()
-    position = authority.InitialPosition()
+    positionTensorShape = authority.PositionTensorShape()
+    moveTensorShape = authority.MoveTensorShape()
+    neuralNetwork = policy.NeuralNetwork(positionTensorShape,
+                                         '[(5, 16), (5, 16), (5, 16)]',
+                                         moveTensorShape)
+    """position = authority.InitialPosition()
     #position, winner = authority.MoveWithColumn(position, playersList[0], 2)
     #position, winner = authority.MoveWithColumn(position, playersList[1], 2)
     #position, winner = authority.MoveWithColumn(position, playersList[0], 2)
@@ -295,6 +301,19 @@ def main():
     print ("position =\n{}".format(position))
     authority.Display(position)
     print ("winner = {}".format(winner))
+    """
+    (averageReward, averageWins, averageDraws, averageLosses, losingGamesPositionsListList) = \
+    policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
+        playersList,
+        authority,
+        neuralNetwork,
+        True,
+        1.0,
+        31,
+        moveChoiceMode='ExpectedMoveValuesThroughSelfPlay',
+        numberOfGamesForMoveEvaluation=31,
+        depthOfExhaustiveSearch=2
+    )
 
 if __name__ == '__main__':
     main()

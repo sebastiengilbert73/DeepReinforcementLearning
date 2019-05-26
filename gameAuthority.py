@@ -47,6 +47,3 @@ class GameAuthority(abc.ABC):
     def Display(self, positionTensor):
         pass
 
-    @abc.abstractmethod
-    def MoveInPlace(self, currentPositionTensor, player, moveTensor):
-        pass # return winner

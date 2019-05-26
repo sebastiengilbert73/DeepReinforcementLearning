@@ -137,6 +137,17 @@ class NeuralNetwork(torch.nn.Module):
                 torch.nn.ReLU()
             )
             self.lastLayerInputNumberOfChannels = 16
+        elif ast.literal_eval(bodyStructure) == [(5, 48)]:
+            self.bodyStructure = torch.nn.Sequential(
+                torch.nn.Conv3d(in_channels=inputTensorSize[0], out_channels=48,
+                                kernel_size=5,
+                                padding=2),
+                torch.nn.BatchNorm3d(48, eps=1e-05, momentum=0.1, affine=True,
+                                     track_running_stats=True),
+                torch.nn.ReLU()
+            )
+            self.lastLayerInputNumberOfChannels = 48
+
         else:
             raise NotImplementedError("NeuralNetwork.__init__(): Unknown body structure '{}'".format(bodyStructure))
 
@@ -328,8 +339,8 @@ def SimulateGameAndGetReward(playerList,
                 epsilon=epsilon
             ).detach()
         #print ("SimulateGameAndGetReward(): chosenMoveTensor =\n{}".format(chosenMoveTensor))
-        #positionTensor, winner = authority.Move(positionTensor, playerList[0], chosenMoveTensor)
-        winner = authority.MoveInPlace(positionTensor, playerList[0], chosenMoveTensor)
+        positionTensor, winner = authority.Move(positionTensor, playerList[0], chosenMoveTensor)
+        #winner = authority.MoveInPlace(positionTensor, playerList[0], chosenMoveTensor)
         if winner == playerList[0] and player == playerList[1]: # All moves are from the point of view of player0, hence he will always 'win'
             winner = playerList[1]
         moveNdx += 1
