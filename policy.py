@@ -15,7 +15,7 @@ class NeuralNetwork(torch.nn.Module):
             raise ValueError("NeuralNetwork.__init__(): The length of inputTensorSize ({}) is not 4 (C, D, H, W)".format(len(inputTensorSize)))
         if len(outputTensorSize) != 4:
             raise ValueError("NeuralNetwork.__init__(): The length of outputTensorSize ({}) is not 4 (C, D, H, W)".format(len(outputTensorSize)))
-        self.inputTensorSize = inputTensorSize;
+        self.inputTensorSize = inputTensorSize
 
         if ast.literal_eval(bodyStructure) == [(3, 32), (3, 32)]:
             self.bodyStructure = torch.nn.Sequential(
