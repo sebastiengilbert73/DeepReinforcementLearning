@@ -7,7 +7,7 @@ import sys
 import statistics
 import numpy
 
-
+"""
 class NeuralNetwork(torch.nn.Module):
     def __init__(self, inputTensorSize, bodyStructure, outputTensorSize): # Both input and output tensor sizes must be (C, D, H, W)
         super(NeuralNetwork, self).__init__()
@@ -242,7 +242,7 @@ class NeuralNetwork(torch.nn.Module):
                                                                softMaxTemperature=softMaxTemperature)
         return normalizedActionValuesTensor
 
-
+"""
 
 def NormalizeProbabilities(moveProbabilitiesTensor, legalMovesMask, preApplySoftMax=True, softMaxTemperature=1.0):
     if moveProbabilitiesTensor.shape != legalMovesMask.shape:

@@ -197,16 +197,17 @@ class Authority(gameAuthority.GameAuthority):
 
 def main():
     print ("tic-tac-toe.py main()")
+    import moveEvaluation.ConvolutionStack
 
     authority = Authority()
     positionTensorShape = authority.PositionTensorShape()
     moveTensorShape = authority.MoveTensorShape()
     playersList = authority.PlayersList()
     initialPosition = authority.InitialPosition()
-    neuralNetwork = policy.NeuralNetwork(positionTensorShape,
-                                         '[(3, 16), (3, 16), (3, 16)]',
+    neuralNetwork = moveEvaluation.ConvolutionStack.Net(positionTensorShape,
+                                         [(3, 16), (3, 16), (3, 16)],
                                          moveTensorShape)
-    neuralNetwork.load_state_dict(torch.load('/home/sebastien/projects/DeepReinforcementLearning/outputs/neuralNet_tictactoe_106.pth'))
+    neuralNetwork.load_state_dict(torch.load('/home/sebastien/projects/DeepReinforcementLearning/outputs/neuralNet_tictactoe_20.pth'))
     """averageReward, winRate, drawRate, lossRate, losingGamesPositionsListList = \
         policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
                              playersList,
@@ -230,12 +231,12 @@ def main():
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 1))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 2))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 0))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 1))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 0))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 0))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 1))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 0))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (2, 1))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 2))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 2))
 
 
     """(rewardAverage, rewardStandardDeviation) = policy.RewardStatistics(
@@ -263,7 +264,7 @@ def main():
                                              )
     print ("reward = {}".format(reward))
     """
-    numberOfGamesForEvaluation = 41
+    """numberOfGamesForEvaluation = 41
     softMaxTemperatureForSelfPlayEvaluation = 1.0
     epsilon = 0
     depthOfExhaustiveSearch = 2
@@ -281,7 +282,16 @@ def main():
     print ("moveValuesTensor =\n{}".format(moveValuesTensor))
     print ("standardDeviationTensor =\n{}".format(standardDeviationTensor))
     print ("legalMovesMask = \n{}".format(legalMovesMask))
-
+    """
+    chosenMove = neuralNetwork.ChooseAMove(
+        initialPosition,
+        'X',
+        authority,
+        True,
+        0.01,
+        0.0
+    )
+    print ("chosenMove = {}\n".format(chosenMove))
     """
     numberOfGames = 100
     depthOfExhaustiveSearch = 2
