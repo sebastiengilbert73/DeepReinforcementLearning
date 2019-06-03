@@ -312,6 +312,7 @@ def SimulateGameAndGetReward(playerList,
                              nextPlayer,
                              authority,
                              neuralNetwork, # If None, do random moves
+                             chooseHighestProbabilityIfAtLeast,
                              preApplySoftMax,
                              softMaxTemperature,
                              epsilon):
@@ -334,6 +335,7 @@ def SimulateGameAndGetReward(playerList,
                 positionTensor,
                 playerList[0],
                 authority,
+                chooseHighestProbabilityIfAtLeast,
                 preApplySoftMax,
                 softMaxTemperature,
                 epsilon=epsilon
@@ -706,6 +708,7 @@ def PositionExpectedMoveValues(
         playerList,
         authority,
         neuralNetwork,
+        chooseHighestProbabilityIfAtLeast,
         initialPosition,
         numberOfGamesForEvaluation,
         softMaxTemperatureForSelfPlayEvaluation,
@@ -744,6 +747,7 @@ def PositionExpectedMoveValues(
                 playerList,
                 playerList[1],
                 authority,
+                chooseHighestProbabilityIfAtLeast,
                 neuralNetwork,
                 softMaxTemperatureForSelfPlayEvaluation,
                 epsilon,
@@ -756,6 +760,7 @@ def PositionExpectedMoveValues(
     return moveValuesTensor, standardDeviationTensor, legalMovesMask
 
 def RewardStatistics(positionTensor, searchDepth, maxSearchDepth, playersList, player, authority,
+                  chooseHighestProbabilityIfAtLeast,
                   neuralNetwork, softMaxTemperatureForSelfPlayEvaluation, epsilon,
                   numberOfGamesForEvaluation):
     if searchDepth > maxSearchDepth: # Evaluate with Monte-Carlo tree search
@@ -767,6 +772,7 @@ def RewardStatistics(positionTensor, searchDepth, maxSearchDepth, playersList, p
                 player,
                 authority,
                 neuralNetwork,
+                chooseHighestProbabilityIfAtLeast,
                 preApplySoftMax=True,
                 softMaxTemperature=softMaxTemperatureForSelfPlayEvaluation,
                 epsilon=epsilon
@@ -814,6 +820,7 @@ def RewardStatistics(positionTensor, searchDepth, maxSearchDepth, playersList, p
                     playersList,
                     nextPlayer,
                     authority,
+                    chooseHighestProbabilityIfAtLeast,
                     neuralNetwork,
                     softMaxTemperatureForSelfPlayEvaluation,
                     epsilon,
@@ -896,6 +903,7 @@ def AverageRewardAgainstARandomPlayer(
                              playerList,
                              authority,
                              neuralNetwork, # If None, do random moves
+                             chooseHighestProbabilityIfAtLeast,
                              preApplySoftMax,
                              softMaxTemperature,
                              numberOfGames,
@@ -924,6 +932,7 @@ def AverageRewardAgainstARandomPlayer(
                         positionTensor,
                         player,
                         authority,
+                        chooseHighestProbabilityIfAtLeast,
                         preApplySoftMax,
                         softMaxTemperature,
                         epsilon=0
@@ -981,6 +990,7 @@ def AverageRewardAgainstARandomPlayerKeepLosingGames(
                              playerList,
                              authority,
                              neuralNetwork, # If None, do random moves
+                             chooseHighestProbabilityIfAtLeast,
                              preApplySoftMax,
                              softMaxTemperature,
                              numberOfGames,
@@ -1014,6 +1024,7 @@ def AverageRewardAgainstARandomPlayerKeepLosingGames(
                         positionTensor,
                         player,
                         authority,
+                        chooseHighestProbabilityIfAtLeast,
                         preApplySoftMax,
                         softMaxTemperature,
                         epsilon=0
@@ -1027,6 +1038,7 @@ def AverageRewardAgainstARandomPlayerKeepLosingGames(
                         playerList,
                         authority,
                         neuralNetwork,
+                        chooseHighestProbabilityIfAtLeast,
                         positionTensor,
                         numberOfGamesForMoveEvaluation,
                         softMaxTemperature,
@@ -1158,6 +1170,7 @@ def GenerateMoveStatistics(playerList,
                             softMaxTemperatureForSelfPlayEvaluation,
                             epsilon,
                             depthOfExhaustiveSearch,
+                            chooseHighestProbabilityIfAtLeast,
                             additionalStartingPositionsList=[]
                             ):
     # Create initial positions
@@ -1175,6 +1188,7 @@ def GenerateMoveStatistics(playerList,
         moveNdx = 0
         while moveNdx < numberOfMoves and winner is None:
             chosenMoveTensor = neuralNetwork.ChooseAMove(positionTensor, playerList[0], authority,
+                                                         chooseHighestProbabilityIfAtLeast=chooseHighestProbabilityIfAtLeast,
                                                          preApplySoftMax=True, softMaxTemperature=1.0,
                                                          epsilon=epsilon)
             positionTensor, winner = authority.Move(positionTensor, playerList[0], chosenMoveTensor)
@@ -1209,6 +1223,7 @@ def GenerateMoveStatistics(playerList,
             playerList,
             authority,
             neuralNetwork,
+            chooseHighestProbabilityIfAtLeast,
             initialPosition,
             numberOfGamesForEvaluation,
             softMaxTemperatureForSelfPlayEvaluation,

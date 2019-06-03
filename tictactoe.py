@@ -198,6 +198,7 @@ class Authority(gameAuthority.GameAuthority):
 def main():
     print ("tic-tac-toe.py main()")
     import moveEvaluation.ConvolutionStack
+    import time
 
     authority = Authority()
     positionTensorShape = authority.PositionTensorShape()
@@ -207,7 +208,7 @@ def main():
     neuralNetwork = moveEvaluation.ConvolutionStack.Net(positionTensorShape,
                                          [(3, 16), (3, 16), (3, 16)],
                                          moveTensorShape)
-    neuralNetwork.load_state_dict(torch.load('/home/sebastien/projects/DeepReinforcementLearning/outputs/neuralNet_tictactoe_20.pth'))
+    neuralNetwork.load_state_dict(torch.load('/home/sebastien/projects/DeepReinforcementLearning/outputs/neuralNet_tictactoe_480.pth'))
     """averageReward, winRate, drawRate, lossRate, losingGamesPositionsListList = \
         policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
                              playersList,
@@ -283,15 +284,20 @@ def main():
     print ("standardDeviationTensor =\n{}".format(standardDeviationTensor))
     print ("legalMovesMask = \n{}".format(legalMovesMask))
     """
+    chooseHighestProbabilityIfAtLeast = 1.0
+    startTime = time.time()
     chosenMove = neuralNetwork.ChooseAMove(
         initialPosition,
         'X',
         authority,
+        chooseHighestProbabilityIfAtLeast,
         True,
-        0.01,
-        0.0
+        softMaxTemperature=0.1,
+        epsilon=0.0
     )
-    print ("chosenMove = {}\n".format(chosenMove))
+    endTime = time.time()
+    print ("Delay = {}".format(endTime - startTime))
+    print ("chosenMove = \n{}".format(chosenMove))
     """
     numberOfGames = 100
     depthOfExhaustiveSearch = 2

@@ -14,6 +14,7 @@ python learnTicTacToe.py \
 	--averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic='{0.4: 0.3, 0.3: 0.2, 0.2: 0.1, 0.1: 0.1}' \
 	--epsilon=0.3 \
 	--depthOfExhaustiveSearch=1 \
+	--chooseHighestProbabilityIfAtLeast=0.5 \
 
 
 
