@@ -12,5 +12,5 @@ python learnConnect4.py \
 	--softMaxTemperatureForSelfPlayEvaluation=1.0 \
 	--epsilon=0.3 \
 	--depthOfExhaustiveSearch=1 \
+	--chooseHighestProbabilityIfAtLeast=0.5 \
 
-	

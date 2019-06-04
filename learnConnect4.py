@@ -4,6 +4,7 @@ import os
 import ast
 import policy
 import connect4
+import moveEvaluation.ConvolutionStack
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--disable-cuda', action='store_true', help='Disable CUDA')
@@ -19,6 +20,7 @@ parser.add_argument('--learningRateExponentialDecay', help='The learning rate ex
 parser.add_argument('--softMaxTemperatureForSelfPlayEvaluation', help='The softmax temperature when evaluation through self-play. Default: 0.3', type=float, default=0.3)
 parser.add_argument('--epsilon', help='Probability to do a random move while generating move statistics. Default: 0.1', type=float, default=0.1)
 parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The depth of exhaustive search, when generating move statitics. Default: 1', default=1)
+parser.add_argument('--chooseHighestProbabilityIfAtLeast', type=float, help='The threshold probability to trigger automatic choice of the highest probability, instead of choosing with roulette. Default: 1.0', default=1.0)
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
 
@@ -31,9 +33,15 @@ def main():
     moveTensorShape = authority.MoveTensorShape()
     playerList = authority.PlayersList()
 
-    neuralNetwork = policy.NeuralNetwork(positionTensorShape,
+    """neuralNetwork = policy.NeuralNetwork(positionTensorShape,
                                          '[(5, 48)]',
                                          moveTensorShape)
+    """
+    neuralNetwork = moveEvaluation.ConvolutionStack.Net(
+        positionTensorShape,
+        [(5, 16), (5, 16), (5, 16)],
+        moveTensorShape
+    )
     # Create the optimizer
     optimizer = torch.optim.Adam(neuralNetwork.parameters(), lr=args.learningRate, betas=(0.5, 0.999))
 
@@ -57,6 +65,7 @@ def main():
             playerList,
             authority,
             neuralNetwork,
+            args.chooseHighestProbabilityIfAtLeast,
             True,
             0.1,
             100,
@@ -91,6 +100,7 @@ def main():
             softMaxTemperatureForSelfPlayEvaluation,
             args.epsilon,
             args.depthOfExhaustiveSearch,
+            args.chooseHighestProbabilityIfAtLeast,
             losingGamesAgainstRandomPlayerPositionsList
         )
 
@@ -147,7 +157,6 @@ def main():
         # Save the neural network
         modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_connect4_" + str(epoch) + '.pth')
         torch.save(neuralNetwork.state_dict(), modelParametersFilename)
-
         if epoch % 200 == 0:
             moveChoiceMode = 'ExpectedMoveValuesThroughSelfPlay'
             numberOfGames = 100
@@ -161,6 +170,7 @@ def main():
             playerList,
             authority,
             neuralNetwork,
+            args.chooseHighestProbabilityIfAtLeast,
             True,
             softMaxTemperature=softMaxTemperatureForSelfPlayEvaluation,
             numberOfGames=numberOfGames,
