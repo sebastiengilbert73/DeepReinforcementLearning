@@ -215,7 +215,7 @@ def main():
     neuralNet.Save('./outputs', 'testSuffix')
 
     twinNet = Net()
-    twinNet.Load("/home/sebastien/projects/DeepReinforcementLearning/outputs/Net_(2,1,3,4)_[(3,32),(5,16),(7,8)]_(5,1,4,7)_testSuffix.pth")
+    twinNet.Load("/home/sebastien/projects/DeepReinforcementLearning/outputs/Net_(2,1,6,7)_[(5,16),(5,16),(5,16)]_(1,1,1,7)_connect4_18.pth")
     print ("main(): twinNet =\{}".format(twinNet))
 
 if __name__ == '__main__':
