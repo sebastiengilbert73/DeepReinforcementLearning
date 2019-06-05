@@ -13,5 +13,4 @@ python learnConnect4.py \
 	--epsilon=0.3 \
 	--depthOfExhaustiveSearch=1 \
 	--chooseHighestProbabilityIfAtLeast=0.5 \
-	--startWithNeuralNetwork=None \
 
