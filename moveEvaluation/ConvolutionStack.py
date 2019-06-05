@@ -4,12 +4,13 @@ import collections # OrderedDict
 import policy
 import random
 import numpy
+import os
 
 class Net(torch.nn.Module):
     def __init__(self,
-                 inputTensorSize,
-                 bodyStructure,
-                 outputTensorSize):  # Both input and output tensor sizes must be (C, D, H, W)
+                 inputTensorSize=(1, 1, 1, 1),
+                 bodyStructure=[(3, 1)],
+                 outputTensorSize=(1, 1, 1, 1)):  # Both input and output tensor sizes must be (C, D, H, W)
         super(Net, self).__init__()
         if len(inputTensorSize) != 4:
             raise ValueError("Net.__init__(): The length of inputTensorSize ({}) is not 4 (C, D, H, W)".format(len(inputTensorSize)))
@@ -43,6 +44,7 @@ class Net(torch.nn.Module):
                                                    outputTensorNumberOfEntries)
         #self.tanh = torch.nn.Tanh()
         self.sigmoid = torch.nn.Sigmoid()
+        self.bodyStructureList = bodyStructure
 
     def ConvolutionLayer(self, inputNumberOfChannels, kernelDimension, numberOfOutputChannels):
         return torch.nn.Sequential(
@@ -175,6 +177,27 @@ class Net(torch.nn.Module):
                   coordsTensor[3].item())
         return coords
 
+    def Save(self, directory, filenameSuffix):
+        filename = 'Net_' + str(self.inputTensorSize) + '_' + \
+                                str(self.bodyStructureList) + '_' + str(self.outputTensorSize) + '_' + \
+                                filenameSuffix + '.pth'
+        # Remove spaces
+        filename = filename.replace(' ', '')
+        filepath = os.path.join(directory, filename)
+        torch.save(self.state_dict(), filepath)
+
+    def Load(self, filepath):
+        filename = os.path.basename(filepath)
+        # Tokenize the filename with '_'
+        tokens = filename.split('_')
+        if len(tokens) < 5:
+            raise ValueError("Net.Load(): The number of tokens of {} is less than 5 ({})".format(filename, len(tokens)))
+        inputTensorSize = ast.literal_eval(tokens[1])
+        bodyStructure = ast.literal_eval(tokens[2])
+        outputTensorSize = ast.literal_eval(tokens[3])
+        self.__init__(inputTensorSize, bodyStructure, outputTensorSize)
+        self.load_state_dict(torch.load(filepath))
+
 def main():
 
     print ("ConvolutionStack.py main()")
@@ -189,6 +212,11 @@ def main():
                                        'player1',
                                        )
     """
+    neuralNet.Save('./outputs', 'testSuffix')
+
+    twinNet = Net()
+    twinNet.Load("/home/sebastien/projects/DeepReinforcementLearning/outputs/Net_(2,1,3,4)_[(3,32),(5,16),(7,8)]_(5,1,4,7)_testSuffix.pth")
+    print ("main(): twinNet =\{}".format(twinNet))
 
 if __name__ == '__main__':
     main()
