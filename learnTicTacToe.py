@@ -24,6 +24,7 @@ parser.add_argument('--averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluat
 parser.add_argument('--epsilon', help='Probability to do a random move while generating move statistics. Default: 0.1', type=float, default=0.1)
 parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The depth of exhaustive search, when generating move statitics. Default: 2', default=2)
 parser.add_argument('--chooseHighestProbabilityIfAtLeast', type=float, help='The threshold probability to trigger automatic choice of the highest probability, instead of choosing with roulette. Default: 1.0', default=1.0)
+parser.add_argument('--startWithNeuralNetwork', help='The starting neural network weights. Default: None', default=None)
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
 
@@ -63,7 +64,11 @@ def main():
                                          '[(3, 16), (3, 16), (3, 16)]',
                                          moveTensorShape)
     """
-    neuralNetwork = moveEvaluation.ConvolutionStack.Net(
+    if args.startWithNeuralNetwork is not None:
+        neuralNetwork = moveEvaluation.ConvolutionStack.Net()
+        neuralNetwork.Load(args.startWithNeuralNetwork)
+    else:
+        neuralNetwork = moveEvaluation.ConvolutionStack.Net(
         positionTensorShape,
         [(3, 16), (3, 16), (3, 16)],
         moveTensorShape
@@ -85,8 +90,9 @@ def main():
     epochLossFile.write("epoch,averageActionValuesTrainingLoss,averageRewardAgainstRandomPlayer,winRate,drawRate,lossRate\n")
 
     # Save the initial neural network, and write it's score against a random player
-    modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_tictactoe_0.pth")
-    torch.save(neuralNetwork.state_dict(), modelParametersFilename)
+    #modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_tictactoe_0.pth")
+    #torch.save(neuralNetwork.state_dict(), modelParametersFilename)
+    neuralNetwork.Save(args.outputDirectory, 'tictactoe_0')
     (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate) = \
         policy.AverageRewardAgainstARandomPlayer(
             playerList,
@@ -250,8 +256,9 @@ def main():
         # Save the neural network
         #if validationLoss < bestValidationLoss:
         #    bestValidationLoss = validationLoss
-        modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_tictactoe_" + str(epoch) + '.pth')
-        torch.save(neuralNetwork.state_dict(), modelParametersFilename)
+        neuralNetwork.Save(args.outputDirectory, 'tictactoe_' + str(epoch))
+        #modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_tictactoe_" + str(epoch) + '.pth')
+        #torch.save(neuralNetwork.state_dict(), modelParametersFilename)
         if epoch % 20 == 0:
             moveChoiceMode = 'ExpectedMoveValuesThroughSelfPlay'
             numberOfGames = 100
@@ -288,6 +295,9 @@ def main():
 
         epochLossFile.write(str(epoch) + ',' + str(averageActionValuesTrainingLoss) + ',' + str(averageRewardAgainstRandomPlayer) + ',' + str(winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
 
+        initialPosition = authority.InitialPosition()
+        initialPositionOutput = neuralNetwork(initialPosition.unsqueeze(0))
+        print ("main(): initialPositionOutput = \n{}".format(initialPositionOutput))
 
 if __name__ == '__main__':
     main()

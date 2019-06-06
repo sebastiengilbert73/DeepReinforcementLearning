@@ -196,7 +196,7 @@ class Net(torch.nn.Module):
         bodyStructure = ast.literal_eval(tokens[2])
         outputTensorSize = ast.literal_eval(tokens[3])
         self.__init__(inputTensorSize, bodyStructure, outputTensorSize)
-        self.load_state_dict(torch.load(filepath))
+        self.load_state_dict(torch.load(filepath, map_location=lambda storage, location: storage))
 
 def main():
 

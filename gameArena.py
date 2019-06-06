@@ -1,7 +1,9 @@
 import argparse
+import ast
 import torch
 import time
 import policy
+import moveEvaluation.ConvolutionStack
 import tictactoe
 import connect4
 
@@ -14,6 +16,7 @@ parser.add_argument('--numberOfGamesForMoveEvaluation', type=int, help='The numb
 parser.add_argument('--softMaxTemperature', type=float, help='The softMax temperature used by the neural network while simulating the games. Default: 1.0', default=1.0)
 parser.add_argument('--displayExpectedMoveValues', action='store_true', help='Display the expected move values, the standard deviations and the legal moves mask')
 parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The maximum number of moves for exhaustive search. Default: 2', default=2)
+parser.add_argument('--chooseHighestProbabilityIfAtLeast', type=float, help='The threshold probability to trigger automatic choice of the highest probability, instead of choosing with roulette. Default: 1.0', default=1.0)
 args = parser.parse_args()
 
 def DisplayExpectedMoveValues(moveValuesTensor, standardDeviationTensor, legalMovesMask, chosenMoveTensor):
@@ -26,6 +29,7 @@ def AskTheNeuralNetworkToChooseAMove(
             playersList,
             authority,
             neuralNetwork,
+            chooseHighestProbabilityIfAtLeast,
             positionTensor,
             numberOfGamesForMoveEvaluation,
             softMaxTemperature,
@@ -36,6 +40,7 @@ def AskTheNeuralNetworkToChooseAMove(
         playersList,
         authority,
         neuralNetwork,
+        chooseHighestProbabilityIfAtLeast,
         positionTensor,
         numberOfGamesForMoveEvaluation,
         softMaxTemperature,
@@ -77,9 +82,13 @@ def main():
     positionTensorShape = authority.PositionTensorShape()
     moveTensorShape = authority.MoveTensorShape()
 
-    neuralNetwork = policy.NeuralNetwork(positionTensorShape, args.networkBodyArchitecture, moveTensorShape)
+    #neuralNetwork = policy.NeuralNetwork(positionTensorShape, args.networkBodyArchitecture, moveTensorShape)
+    neuralNetwork = moveEvaluation.ConvolutionStack.Net(positionTensorShape,
+                                                        ast.literal_eval(args.networkBodyArchitecture),
+                                                        moveTensorShape)
     if args.neuralNetwork is not None:
-        neuralNetwork.load_state_dict(torch.load(args.neuralNetwork))
+        neuralNetwork.Load(args.neuralNetwork)
+        #neuralNetwork.load_state_dict(torch.load(args.neuralNetwork))
     winner = None
     numberOfPlayedMoves = 0
     player = playersList[numberOfPlayedMoves % 2]
@@ -92,6 +101,7 @@ def main():
             playersList,
             authority,
             neuralNetwork,
+            args.chooseHighestProbabilityIfAtLeast,
             positionTensor,
             args.numberOfGamesForMoveEvaluation,
             args.softMaxTemperature,
@@ -120,6 +130,7 @@ def main():
                 playersList,
                 authority,
                 neuralNetwork,
+                args.chooseHighestProbabilityIfAtLeast,
                 positionTensor,
                 args.numberOfGamesForMoveEvaluation,
                 args.softMaxTemperature,
