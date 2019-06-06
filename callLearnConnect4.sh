@@ -1,6 +1,6 @@
 #! /bin/bash
 python learnConnect4.py \
-	--learningRate=0.001 \
+	--learningRate=0.0001 \
 	--numberOfEpochs=1000 \
 	--minibatchSize=16 \
 	--outputDirectory='outputs' \

@@ -204,6 +204,9 @@ def main():
         epochLossFile.write(str(epoch) + ',' + str(averageActionValuesTrainingLoss) + ',' + str(
             averageRewardAgainstRandomPlayer) + ',' + str(winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
 
+        initialPosition = authority.InitialPosition()
+        initialPositionOutput = neuralNetwork(initialPosition.unsqueeze(0))
+        print("main(): initialPositionOutput = \n{}".format(initialPositionOutput))
 
 if __name__ == '__main__':
     main()
