@@ -1,14 +1,14 @@
 #! /bin/bash
 python learnConnect4.py \
-	--learningRate=0.0001 \
+	--learningRate=0.001 \
 	--numberOfEpochs=1000 \
 	--minibatchSize=16 \
 	--outputDirectory='outputs' \
-	--proportionOfRandomInitialPositions=1.0 \
+	--proportionOfRandomInitialPositions=0.5 \
 	--maximumNumberOfMovesForInitialPositions=40 \
-	--numberOfInitialPositions=64 \
+	--numberOfInitialPositions=256 \
 	--numberOfGamesForEvaluation=31 \
-	--learningRateExponentialDecay=0.999 \
+	--learningRateExponentialDecay=0.99 \
 	--softMaxTemperatureForSelfPlayEvaluation=0.3 \
 	--epsilon=0.1 \
 	--depthOfExhaustiveSearch=1 \
