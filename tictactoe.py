@@ -229,15 +229,15 @@ def main():
             print (losingGamePositionsList[positionNdx])
     """
 
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 1))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 2))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 0))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 1))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 2))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 0))
     initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 1))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 0))
     initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 1))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 2))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 2))
 
 
     """(rewardAverage, rewardStandardDeviation) = policy.RewardStatistics(

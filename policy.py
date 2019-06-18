@@ -846,15 +846,27 @@ def SemiExhaustiveExpectedMoveValues(
                 currentDepth + 1,
                 numberOfTopMovesToDevelop
             )
+            # Find the highest value in the legal moves
+            nextHighestReward = -2.0
+            nextHighestRewardCoords = (0, 0, 0, 0)
+            nextNonZeroCoordsTensor = torch.nonzero(nextLegalMovesMask)
+            for nextNonZeroCoordsNdx in range(nextNonZeroCoordsTensor.size(0)):
+                nextNonZeroCoords = nextNonZeroCoordsTensor[nextNonZeroCoordsNdx]
+                if nextValuesTensor[
+                    nextNonZeroCoords[0], nextNonZeroCoords[1], nextNonZeroCoords[2], nextNonZeroCoords[3] ] \
+                        > nextHighestReward:
+                    nextHighestReward = nextValuesTensor[
+                        nextNonZeroCoords[0], nextNonZeroCoords[1], nextNonZeroCoords[2], nextNonZeroCoords[3] ]
+                    nextHighestRewardCoords = nextNonZeroCoords
+
+            #print ("SemiExhaustiveExpectedMoveValues(): nextValuesTensor = \n{}\nnextStandardDeviationTensor =\n{}\nnextLegalMovesMask =\n{}".format(nextValuesTensor, nextStandardDeviationTensor, nextLegalMovesMask))
             # The opponent will choose the highest average reward
-            highestRewardFlatIndex = torch.argmax(nextValuesTensor)
-            highestRewardCoords = CoordinatesFromFlatIndex(highestRewardFlatIndex, moveTensorShape)
             correspondingStdDeviation = nextStandardDeviationTensor[
-                highestRewardCoords[0], highestRewardCoords[1], highestRewardCoords[2], highestRewardCoords[3]
+                nextHighestRewardCoords[0], nextHighestRewardCoords[1], nextHighestRewardCoords[2], nextHighestRewardCoords[3]
             ]
             # The actual average reward for the current player is -1 x the average reward
-            negatedReward = -1.0 * torch.max(nextValuesTensor)
-            print ("negatedReward = {}; correspondingStdDeviation = {}".format(negatedReward, correspondingStdDeviation))
+            negatedReward = -1.0 * nextHighestReward
+            #print ("negatedReward = {}; correspondingStdDeviation = {}".format(negatedReward, correspondingStdDeviation))
             moveValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = negatedReward
             standardDeviationTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = correspondingStdDeviation
         else:
