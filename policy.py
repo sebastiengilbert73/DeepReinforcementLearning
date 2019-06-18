@@ -759,6 +759,122 @@ def PositionExpectedMoveValues(
 
     return moveValuesTensor, standardDeviationTensor, legalMovesMask
 
+def SemiExhaustiveExpectedMoveValues(
+        playerList,
+        authority,
+        neuralNetwork,
+        chooseHighestProbabilityIfAtLeast,
+        position,
+        numberOfGamesForEvaluation,
+        softMaxTemperatureForSelfPlayEvaluation,
+        epsilon,
+        maximumDepthOfSemiExhaustiveSearch,
+        currentDepth,
+        numberOfTopMovesToDevelop
+        ):
+
+    legalMovesMask = authority.LegalMovesMask(position, playerList[0])
+    moveTensorShape = authority.MoveTensorShape()
+
+    nonZeroCoordsTensor = torch.nonzero(legalMovesMask)
+    moveValuesTensor = torch.zeros(moveTensorShape)
+    standardDeviationTensor = torch.zeros(moveTensorShape) - 1.0
+
+    neuralNetworkOutput = neuralNetwork(position.unsqueeze(0)).squeeze(0)
+    print ("SemiExhaustiveExpectedMoveValues(): neuralNetworkOutput = \n{}".format(neuralNetworkOutput))
+
+    nonZeroCoordsToNetOutputDic = dict()
+    for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
+        nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+        print ("SemiExhaustiveExpectedMoveValues(): nonZeroCoords = {}".format(nonZeroCoords))
+        nonZeroCoordsToNetOutputDic[nonZeroCoords] = neuralNetworkOutput[
+            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3] ].item()
+
+    print ("SemiExhaustiveExpectedMoveValues(): nonZeroCoordsToNetOutputDic = \n{}".format(nonZeroCoordsToNetOutputDic))
+    legalMoveValuesList = list(nonZeroCoordsToNetOutputDic.values())
+    legalMoveValuesList.sort(reverse=True)
+    print ("SemiExhaustiveExpectedMoveValues(): legalMoveValuesList = {}".format(legalMoveValuesList))
+    minimumValueForExhaustiveSearch = legalMoveValuesList[-1]
+    if numberOfTopMovesToDevelop > 0 and numberOfTopMovesToDevelop < len(legalMoveValuesList):
+        minimumValueForExhaustiveSearch = legalMoveValuesList[numberOfTopMovesToDevelop - 1]
+    print ("SemiExhaustiveExpectedMoveValues(): minimumValueForExhaustiveSearch = {}".format(minimumValueForExhaustiveSearch))
+
+    # Go through the legal moves
+    for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
+        #print ("nonZeroCoordsNdx = {}".format(nonZeroCoordsNdx))
+        nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+        firstMoveArr = numpy.zeros(moveTensorShape)
+        firstMoveArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 1
+        firstMoveTensor = torch.from_numpy(firstMoveArr).float()
+        positionAfterFirstMoveTensor, winner = authority.Move(position, playerList[0],
+                                                              firstMoveTensor)
+        if winner is playerList[0]:
+            #print ("{} won!".format(playerList[0]))
+            moveValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 1.0
+            standardDeviationTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 0.0
+            continue # Go back to the beginning of the for body
+        elif winner is playerList[1]:
+            #print ("{} won!".format(playerList[1]))
+            moveValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = -1.0
+            standardDeviationTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 0.0
+            continue  # Go back to the beginning of the for body
+        elif winner is 'draw':
+            moveValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 0.0
+            standardDeviationTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 0.0
+            continue  # Go back to the beginning of the for body
+
+        #print ("After checking the winner")
+        moveValue = neuralNetworkOutput[
+            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3] ].item()
+        print ("SemiExhaustiveExpectedMoveValues(): nonZeroCoords = {}; moveValue = {}".format(nonZeroCoords, moveValue))
+        if moveValue >= minimumValueForExhaustiveSearch:
+            print ("Exhaustive search")
+            # Swap the positions to present the situation as playerList[0] to the neural network
+            swappedPosition = authority.SwapPositions(positionAfterFirstMoveTensor,
+                                                      playerList[0], playerList[1])
+            nextValuesTensor, nextStandardDeviationTensor, nextLegalMovesMask = \
+            SemiExhaustiveExpectedMoveValues(
+                playerList,
+                authority,
+                neuralNetwork,
+                chooseHighestProbabilityIfAtLeast,
+                swappedPosition,
+                numberOfGamesForEvaluation,
+                softMaxTemperatureForSelfPlayEvaluation,
+                epsilon,
+                maximumDepthOfSemiExhaustiveSearch,
+                currentDepth + 1,
+                numberOfTopMovesToDevelop
+            )
+            # The opponent will choose the highest average reward
+            highestRewardFlatIndex = torch.argmax(nextValuesTensor)
+            highestRewardCoords = CoordinatesFromFlatIndex(highestRewardFlatIndex, moveTensorShape)
+            correspondingStdDeviation = nextStandardDeviationTensor[
+                highestRewardCoords[0], highestRewardCoords[1], highestRewardCoords[2], highestRewardCoords[3]
+            ]
+            # The actual average reward for the current player is -1 x the average reward
+            negatedReward = -1.0 * torch.max(nextValuesTensor)
+            print ("negatedReward = {}; correspondingStdDeviation = {}".format(negatedReward, correspondingStdDeviation))
+            moveValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = negatedReward
+            standardDeviationTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = correspondingStdDeviation
+        else:
+            print ("Monte-Carlo Tree Search")
+            (averageReward, rewardStandardDeviation) = \
+            RewardStatistics(
+                positionAfterFirstMoveTensor, currentDepth + 1, currentDepth,
+                playerList, playerList[1],
+                authority,
+                chooseHighestProbabilityIfAtLeast,
+                neuralNetwork,
+                softMaxTemperatureForSelfPlayEvaluation,
+                epsilon,
+                numberOfGamesForEvaluation
+            )
+            moveValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = averageReward
+            standardDeviationTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = rewardStandardDeviation
+            print ("averageReward = {}; rewardStandardDeviation = {}".format(averageReward, rewardStandardDeviation))
+    return moveValuesTensor, standardDeviationTensor, legalMovesMask
+
 def RewardStatistics(positionTensor, searchDepth, maxSearchDepth, playersList, player, authority,
                   chooseHighestProbabilityIfAtLeast,
                   neuralNetwork, softMaxTemperatureForSelfPlayEvaluation, epsilon,
@@ -1234,6 +1350,22 @@ def GenerateMoveStatistics(playerList,
                                       standardDeviationTensor, legalMovesNMask))
 
     return positionMoveStatistics
+
+def CoordinatesFromFlatIndex(
+            flatIndex,
+            tensorShape):
+    numberOfEntries = tensorShape[0] * tensorShape[1] * \
+        tensorShape[2] * tensorShape[3]
+
+    flatTensor = torch.zeros((numberOfEntries))
+    flatTensor[flatIndex] = 1
+    oneHotTensor = flatTensor.view(tensorShape)
+    coordsTensor = oneHotTensor.nonzero()[0]
+    coords = (coordsTensor[0].item(),
+              coordsTensor[1].item(),
+              coordsTensor[2].item(),
+              coordsTensor[3].item())
+    return coords
 
 def main():
     print ("policy.py main()")
