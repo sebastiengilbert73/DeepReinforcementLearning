@@ -208,7 +208,7 @@ def main():
     neuralNetwork = moveEvaluation.ConvolutionStack.Net(positionTensorShape,
                                          [(3, 16), (3, 16), (3, 16)],
                                          moveTensorShape)
-    neuralNetwork.load_state_dict(torch.load('/home/sebastien/projects/DeepReinforcementLearning/outputs/Net_(2,1,3,3)_[(3,16),(3,16),(3,16)]_(1,1,3,3)_tictactoe_140.pth'))
+    neuralNetwork.load_state_dict(torch.load('/home/sebastien/projects/DeepReinforcementLearning/outputs/Net_(2,1,3,3)_[(3,16),(3,16),(3,16)]_(1,1,3,3)_tictactoe_154.pth'))
     """averageReward, winRate, drawRate, lossRate, losingGamesPositionsListList = \
         policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
                              playersList,
@@ -229,38 +229,41 @@ def main():
             print (losingGamePositionsList[positionNdx])
     """
 
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 0))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 1))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (0, 2))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 0))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 1))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 0))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 1))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 2))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 1))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 2))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 0))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 1))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (2, 0))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 1))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (2, 2))
 
-
-    """(rewardAverage, rewardStandardDeviation) = policy.RewardStatistics(
-        initialPosition,
-        1,
-        2,
-        playersList,
-        playersList[0],
-        authority,
-        neuralNetwork,
+    """
+    (rewardAverage, rewardStandardDeviation) = policy.RewardStatistics(
+        positionTensor=initialPosition,
+        searchDepth=1,
+        maxSearchDepth=0,
+        playersList=playersList,
+        player=playersList[0],
+        authority=authority,
+        chooseHighestProbabilityIfAtLeast=0.3,
+        neuralNetwork=neuralNetwork,
         softMaxTemperatureForSelfPlayEvaluation=0.3,
         epsilon=0,
-        numberOfGamesForEvaluation=11
+        numberOfGamesForEvaluation=31
     )
     print ("({}, {})".format(rewardAverage, rewardStandardDeviation) )
     """
-    """reward = policy.SimulateGameAndGetReward(playersList,
+    """
+    reward = policy.SimulateGameAndGetReward(playersList,
                                              initialPosition,
                                              playersList[1],
                                              authority,
                                              neuralNetwork,
+                                             chooseHighestProbabilityIfAtLeast=0.3,
                                              preApplySoftMax=True,
-                                             softMaxTemperature=0.01,
+                                             softMaxTemperature=0.3,
                                              epsilon=0
                                              )
     print ("reward = {}".format(reward))
@@ -322,12 +325,12 @@ def main():
         for position in losingGamePositionsList:
             print ("\n{}".format(position))
     """
-
+    """
     chooseHighestProbabilityIfAtLeast = 0.3
     numberOfGamesForEvaluation = 31
     softMaxTemperatureForSelfPlayEvaluation = 0.3
     epsilon = 0
-    maximumDepthOfSemiExhaustiveSearch = 0
+    maximumDepthOfSemiExhaustiveSearch = 1
     numberOfTopMovesToDevelop = 3
     (moveValuesTensor, standardDeviationTensor, legalMovesMask) = \
         policy.SemiExhaustiveExpectedMoveValues(
@@ -348,6 +351,7 @@ def main():
     print ("moveValuesTensor =\n{}".format(moveValuesTensor))
     print ("standardDeviationTensor =\n{}".format(standardDeviationTensor))
     print ("legalMovesMask =\n{}".format(legalMovesMask))
+    """
 
 if __name__ == '__main__':
     main()

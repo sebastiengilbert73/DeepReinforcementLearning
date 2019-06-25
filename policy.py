@@ -331,6 +331,7 @@ def SimulateGameAndGetReward(playerList,
         if neuralNetwork is None:
             chosenMoveTensor = ChooseARandomMove(positionTensor, playerList[0], authority)
         else:
+            #print ("SimulateGameAndGetReward(): player = {}; positionTensor = \n{}".format(player, positionTensor))
             chosenMoveTensor = neuralNetwork.ChooseAMove(
                 positionTensor,
                 playerList[0],
@@ -781,28 +782,36 @@ def SemiExhaustiveExpectedMoveValues(
     standardDeviationTensor = torch.zeros(moveTensorShape) - 1.0
 
     neuralNetworkOutput = neuralNetwork(position.unsqueeze(0)).squeeze(0)
-    print ("SemiExhaustiveExpectedMoveValues(): neuralNetworkOutput = \n{}".format(neuralNetworkOutput))
+    #print ("SemiExhaustiveExpectedMoveValues(): neuralNetworkOutput = \n{}".format(neuralNetworkOutput))
 
     nonZeroCoordsToNetOutputDic = dict()
     for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
         nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
-        print ("SemiExhaustiveExpectedMoveValues(): nonZeroCoords = {}".format(nonZeroCoords))
+        #print ("SemiExhaustiveExpectedMoveValues(): nonZeroCoords = {}".format(nonZeroCoords))
         nonZeroCoordsToNetOutputDic[nonZeroCoords] = neuralNetworkOutput[
             nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3] ].item()
 
-    print ("SemiExhaustiveExpectedMoveValues(): nonZeroCoordsToNetOutputDic = \n{}".format(nonZeroCoordsToNetOutputDic))
+    #print ("SemiExhaustiveExpectedMoveValues(): nonZeroCoordsToNetOutputDic = \n{}".format(nonZeroCoordsToNetOutputDic))
     legalMoveValuesList = list(nonZeroCoordsToNetOutputDic.values())
     legalMoveValuesList.sort(reverse=True)
-    print ("SemiExhaustiveExpectedMoveValues(): legalMoveValuesList = {}".format(legalMoveValuesList))
-    minimumValueForExhaustiveSearch = legalMoveValuesList[-1]
+    #print ("SemiExhaustiveExpectedMoveValues(): legalMoveValuesList = {}".format(legalMoveValuesList))
+    minimumValueForExhaustiveSearch = -2.0
     if numberOfTopMovesToDevelop > 0 and numberOfTopMovesToDevelop < len(legalMoveValuesList):
         minimumValueForExhaustiveSearch = legalMoveValuesList[numberOfTopMovesToDevelop - 1]
-    print ("SemiExhaustiveExpectedMoveValues(): minimumValueForExhaustiveSearch = {}".format(minimumValueForExhaustiveSearch))
+    elif numberOfTopMovesToDevelop < 1:
+        minimumValueForExhaustiveSearch = 2.0
+    #print ("SemiExhaustiveExpectedMoveValues(): minimumValueForExhaustiveSearch = {}".format(minimumValueForExhaustiveSearch))
 
     # Go through the legal moves
     for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
         #print ("nonZeroCoordsNdx = {}".format(nonZeroCoordsNdx))
         nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+        weirdMoveFlag = False#\
+            #nonZeroCoords[0] == 0 and \
+            #nonZeroCoords[1] == 0 and \
+            #nonZeroCoords[2] == 2 and \
+            #nonZeroCoords[3] == 0
+
         firstMoveArr = numpy.zeros(moveTensorShape)
         firstMoveArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 1
         firstMoveTensor = torch.from_numpy(firstMoveArr).float()
@@ -826,9 +835,9 @@ def SemiExhaustiveExpectedMoveValues(
         #print ("After checking the winner")
         moveValue = neuralNetworkOutput[
             nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3] ].item()
-        print ("SemiExhaustiveExpectedMoveValues(): nonZeroCoords = {}; moveValue = {}".format(nonZeroCoords, moveValue))
+        #print ("SemiExhaustiveExpectedMoveValues(): nonZeroCoords = {}; moveValue = {}".format(nonZeroCoords, moveValue))
         if moveValue >= minimumValueForExhaustiveSearch:
-            print ("Exhaustive search")
+            #print ("Exhaustive search")
             # Swap the positions to present the situation as playerList[0] to the neural network
             swappedPosition = authority.SwapPositions(positionAfterFirstMoveTensor,
                                                       playerList[0], playerList[1])
@@ -870,7 +879,9 @@ def SemiExhaustiveExpectedMoveValues(
             moveValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = negatedReward
             standardDeviationTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = correspondingStdDeviation
         else:
-            print ("Monte-Carlo Tree Search")
+            if weirdMoveFlag:
+                print ("SemiExhaustiveExpectedMoveValues(): weirdMoveFlag, Monte-Carlo Tree Search")
+                print ("positionAfterFirstMoveTensor = \n{}".format(positionAfterFirstMoveTensor))
             (averageReward, rewardStandardDeviation) = \
             RewardStatistics(
                 positionAfterFirstMoveTensor, currentDepth + 1, currentDepth,
@@ -884,7 +895,8 @@ def SemiExhaustiveExpectedMoveValues(
             )
             moveValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = averageReward
             standardDeviationTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = rewardStandardDeviation
-            print ("averageReward = {}; rewardStandardDeviation = {}".format(averageReward, rewardStandardDeviation))
+            if weirdMoveFlag:
+                print ("averageReward = {}; rewardStandardDeviation = {}".format(averageReward, rewardStandardDeviation))
     return moveValuesTensor, standardDeviationTensor, legalMovesMask
 
 def RewardStatistics(positionTensor, searchDepth, maxSearchDepth, playersList, player, authority,
