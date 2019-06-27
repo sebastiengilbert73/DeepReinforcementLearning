@@ -208,7 +208,7 @@ def main():
     neuralNetwork = moveEvaluation.ConvolutionStack.Net(positionTensorShape,
                                          [(3, 16), (3, 16), (3, 16)],
                                          moveTensorShape)
-    neuralNetwork.load_state_dict(torch.load('/home/sebastien/projects/DeepReinforcementLearning/outputs/Net_(2,1,3,3)_[(3,16),(3,16),(3,16)]_(1,1,3,3)_tictactoe_154.pth'))
+    neuralNetwork.load_state_dict(torch.load('/home/sebastien/projects/DeepReinforcementLearning/outputs/ToKeep/Net_(2,1,3,3)_[(3,16),(3,16),(3,16)]_(1,1,3,3)_tictactoe_295.pth'))
     """averageReward, winRate, drawRate, lossRate, losingGamesPositionsListList = \
         policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
                              playersList,
@@ -231,7 +231,7 @@ def main():
 
     initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 1))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 2))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 2))
     initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 0))
     initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 1))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
@@ -325,13 +325,13 @@ def main():
         for position in losingGamePositionsList:
             print ("\n{}".format(position))
     """
-    """
+
     chooseHighestProbabilityIfAtLeast = 0.3
     numberOfGamesForEvaluation = 31
     softMaxTemperatureForSelfPlayEvaluation = 0.3
     epsilon = 0
     maximumDepthOfSemiExhaustiveSearch = 1
-    numberOfTopMovesToDevelop = 3
+    numberOfTopMovesToDevelop = 5
     (moveValuesTensor, standardDeviationTensor, legalMovesMask) = \
         policy.SemiExhaustiveExpectedMoveValues(
             playersList,
@@ -351,7 +351,7 @@ def main():
     print ("moveValuesTensor =\n{}".format(moveValuesTensor))
     print ("standardDeviationTensor =\n{}".format(standardDeviationTensor))
     print ("legalMovesMask =\n{}".format(legalMovesMask))
-    """
+
 
 if __name__ == '__main__':
     main()
