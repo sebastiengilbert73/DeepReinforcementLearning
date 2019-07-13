@@ -800,6 +800,8 @@ def SemiExhaustiveExpectedMoveValues(
         minimumValueForExhaustiveSearch = legalMoveValuesList[numberOfTopMovesToDevelop - 1]
     elif numberOfTopMovesToDevelop < 1:
         minimumValueForExhaustiveSearch = 2.0
+    if currentDepth > maximumDepthOfSemiExhaustiveSearch:
+        minimumValueForExhaustiveSearch = 2.0
     #print ("SemiExhaustiveExpectedMoveValues(): minimumValueForExhaustiveSearch = {}".format(minimumValueForExhaustiveSearch))
 
     # Go through the legal moves
@@ -1136,7 +1138,8 @@ def AverageRewardAgainstARandomPlayerKeepLosingGames(
                              numberOfGames,
                              moveChoiceMode='SoftMax',
                              numberOfGamesForMoveEvaluation=31,
-                             depthOfExhaustiveSearch=2
+                             depthOfExhaustiveSearch=2,
+                             numberOfTopMovesToDevelop=3
                              ):
     rewardSum = 0
     numberOfWins = 0
@@ -1184,6 +1187,35 @@ def AverageRewardAgainstARandomPlayerKeepLosingGames(
                         softMaxTemperature,
                         epsilon=0,
                         depthOfExhaustiveSearch=depthOfExhaustiveSearch
+                    )
+                    chosenMoveTensor = torch.zeros(authority.MoveTensorShape())
+                    highestValue = -1E9
+                    highestValueCoords = (0, 0, 0, 0)
+                    nonZeroCoordsTensor = torch.nonzero(legalMovesMask)
+                    for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
+                        nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+                        if moveValuesTensor[
+                            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] > highestValue:
+                            highestValue = moveValuesTensor[
+                                nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
+                            highestValueCoords = nonZeroCoords
+                    chosenMoveTensor[
+                        highestValueCoords[0], highestValueCoords[1], highestValueCoords[2], highestValueCoords[
+                            3]] = 1.0
+                elif moveChoiceMode == 'SemiExhaustiveExpectedMoveValues':
+                    moveValuesTensor, standardDeviationTensor, legalMovesMask = \
+                    SemiExhaustiveExpectedMoveValues(
+                        playerList,
+                        authority,
+                        neuralNetwork,
+                        chooseHighestProbabilityIfAtLeast,
+                        positionTensor,
+                        numberOfGamesForMoveEvaluation,
+                        softMaxTemperature,
+                        epsilon=0,
+                        maximumDepthOfSemiExhaustiveSearch=depthOfExhaustiveSearch,
+                        currentDepth=1,
+                        numberOfTopMovesToDevelop=numberOfTopMovesToDevelop
                     )
                     chosenMoveTensor = torch.zeros(authority.MoveTensorShape())
                     highestValue = -1E9
