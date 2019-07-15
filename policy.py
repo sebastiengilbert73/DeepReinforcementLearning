@@ -901,13 +901,12 @@ def SemiExhaustiveExpectedMoveValues(
                 print ("averageReward = {}; rewardStandardDeviation = {}".format(averageReward, rewardStandardDeviation))
     return moveValuesTensor, standardDeviationTensor, legalMovesMask
 
-def SemiExhaustiveSoftMax(
+def SemiExhaustiveMiniMax(
         playerList,
         authority,
         neuralNetwork,
         chooseHighestProbabilityIfAtLeast,
         position,
-        softMaxTemperature,
         epsilon,
         maximumDepthOfSemiExhaustiveSearch,
         currentDepth,
@@ -919,7 +918,6 @@ def SemiExhaustiveSoftMax(
     :param neuralNetwork: The neural network that will make decisions
     :param chooseHighestProbabilityIfAtLeast: If the highest probability is higher than this, automatically select it, instead of running a roulette
     :param position: The position tensor
-    :param softMaxTemperature: The softMax temperature. Ex.: 0.3
     :param epsilon: The epsilon in the epsilon-greedy algorithm. Ex.: 0.1
     :param maximumDepthOfSemiExhaustiveSearch: The maximum depth of semi exhaustive search. Ex.: 2
     :param currentDepth: The current depth of semi exhaustive search. Ex.: 1
@@ -998,13 +996,12 @@ def SemiExhaustiveSoftMax(
             swappedPosition = authority.SwapPositions(positionAfterFirstMoveTensor,
                                                       playerList[0], playerList[1])
             nextValuesTensor, nextStandardDeviationTensor, nextLegalMovesMask = \
-            SemiExhaustiveSoftMax(
+            SemiExhaustiveMiniMax(
                 playerList,
                 authority,
                 neuralNetwork,
                 chooseHighestProbabilityIfAtLeast,
                 swappedPosition,
-                softMaxTemperature,
                 epsilon,
                 maximumDepthOfSemiExhaustiveSearch,
                 currentDepth + 1,
@@ -1035,7 +1032,7 @@ def SemiExhaustiveSoftMax(
             standardDeviationTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = correspondingStdDeviation
         else:
             if weirdMoveFlag:
-                print ("SemiExhaustiveSoftMax(): weirdMoveFlag, Monte-Carlo Tree Search")
+                print ("SemiExhaustiveMiniMax(): weirdMoveFlag, Monte-Carlo Tree Search")
                 print ("positionAfterFirstMoveTensor = \n{}".format(positionAfterFirstMoveTensor))
 
             moveValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = moveValue
@@ -1376,15 +1373,15 @@ def AverageRewardAgainstARandomPlayerKeepLosingGames(
                     chosenMoveTensor[
                         highestValueCoords[0], highestValueCoords[1], highestValueCoords[2], highestValueCoords[
                             3]] = 1.0
-                elif moveChoiceMode == 'SemiExhaustiveSoftMax':
+                elif moveChoiceMode == 'SemiExhaustiveMiniMax':
                     moveValuesTensor, standardDeviationTensor, legalMovesMask = \
-                    SemiExhaustiveSoftMax(
+                    SemiExhaustiveMiniMax(
                         playerList,
                         authority,
                         neuralNetwork,
                         chooseHighestProbabilityIfAtLeast,
                         positionTensor,
-                        softMaxTemperature,
+                        #softMaxTemperature,
                         epsilon=0,
                         maximumDepthOfSemiExhaustiveSearch=depthOfExhaustiveSearch,
                         currentDepth=1,
