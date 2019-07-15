@@ -935,7 +935,7 @@ def SemiExhaustiveSoftMax(
     standardDeviationTensor = torch.zeros(moveTensorShape) - 1.0
 
     neuralNetworkOutput = neuralNetwork(position.unsqueeze(0)).squeeze(0)
-    print ("SemiExhaustiveSoftMax(): neuralNetworkOutput = \n{}".format(neuralNetworkOutput))
+    #print ("SemiExhaustiveSoftMax(): neuralNetworkOutput = \n{}".format(neuralNetworkOutput))
 
     nonZeroCoordsToNetOutputDic = dict()
     for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
@@ -944,7 +944,7 @@ def SemiExhaustiveSoftMax(
         nonZeroCoordsToNetOutputDic[nonZeroCoords] = neuralNetworkOutput[
             nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3] ].item()
 
-    print ("SemiExhaustiveSoftMax(): nonZeroCoordsToNetOutputDic = \n{}".format(nonZeroCoordsToNetOutputDic))
+    #print ("SemiExhaustiveSoftMax(): nonZeroCoordsToNetOutputDic = \n{}".format(nonZeroCoordsToNetOutputDic))
 
     legalMoveValuesList = list(nonZeroCoordsToNetOutputDic.values())
     legalMoveValuesList.sort(reverse=True)
@@ -956,7 +956,7 @@ def SemiExhaustiveSoftMax(
         minimumValueForExhaustiveSearch = 2.0
     if currentDepth > maximumDepthOfSemiExhaustiveSearch:
         minimumValueForExhaustiveSearch = 2.0
-    print ("SemiExhaustiveSoftMax(): minimumValueForExhaustiveSearch = {}".format(minimumValueForExhaustiveSearch))
+    #print ("SemiExhaustiveSoftMax(): minimumValueForExhaustiveSearch = {}".format(minimumValueForExhaustiveSearch))
 
     # Go through the legal moves
     for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
@@ -1356,6 +1356,34 @@ def AverageRewardAgainstARandomPlayerKeepLosingGames(
                         chooseHighestProbabilityIfAtLeast,
                         positionTensor,
                         numberOfGamesForMoveEvaluation,
+                        softMaxTemperature,
+                        epsilon=0,
+                        maximumDepthOfSemiExhaustiveSearch=depthOfExhaustiveSearch,
+                        currentDepth=1,
+                        numberOfTopMovesToDevelop=numberOfTopMovesToDevelop
+                    )
+                    chosenMoveTensor = torch.zeros(authority.MoveTensorShape())
+                    highestValue = -1E9
+                    highestValueCoords = (0, 0, 0, 0)
+                    nonZeroCoordsTensor = torch.nonzero(legalMovesMask)
+                    for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
+                        nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+                        if moveValuesTensor[
+                            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] > highestValue:
+                            highestValue = moveValuesTensor[
+                                nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
+                            highestValueCoords = nonZeroCoords
+                    chosenMoveTensor[
+                        highestValueCoords[0], highestValueCoords[1], highestValueCoords[2], highestValueCoords[
+                            3]] = 1.0
+                elif moveChoiceMode == 'SemiExhaustiveSoftMax':
+                    moveValuesTensor, standardDeviationTensor, legalMovesMask = \
+                    SemiExhaustiveSoftMax(
+                        playerList,
+                        authority,
+                        neuralNetwork,
+                        chooseHighestProbabilityIfAtLeast,
+                        positionTensor,
                         softMaxTemperature,
                         epsilon=0,
                         maximumDepthOfSemiExhaustiveSearch=depthOfExhaustiveSearch,
