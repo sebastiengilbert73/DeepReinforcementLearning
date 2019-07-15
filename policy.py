@@ -901,6 +901,151 @@ def SemiExhaustiveExpectedMoveValues(
                 print ("averageReward = {}; rewardStandardDeviation = {}".format(averageReward, rewardStandardDeviation))
     return moveValuesTensor, standardDeviationTensor, legalMovesMask
 
+def SemiExhaustiveSoftMax(
+        playerList,
+        authority,
+        neuralNetwork,
+        chooseHighestProbabilityIfAtLeast,
+        position,
+        softMaxTemperature,
+        epsilon,
+        maximumDepthOfSemiExhaustiveSearch,
+        currentDepth,
+        numberOfTopMovesToDevelop
+    ):
+    """
+    :param playerList: The list of player names. Ex.: ['X', 'O']. It is assumed that the neural network is playing player0
+    :param authority: The game authority. ex.: 'tictactoe'
+    :param neuralNetwork: The neural network that will make decisions
+    :param chooseHighestProbabilityIfAtLeast: If the highest probability is higher than this, automatically select it, instead of running a roulette
+    :param position: The position tensor
+    :param softMaxTemperature: The softMax temperature. Ex.: 0.3
+    :param epsilon: The epsilon in the epsilon-greedy algorithm. Ex.: 0.1
+    :param maximumDepthOfSemiExhaustiveSearch: The maximum depth of semi exhaustive search. Ex.: 2
+    :param currentDepth: The current depth of semi exhaustive search. Ex.: 1
+    :param numberOfTopMovesToDevelop: The number of top values for which we'll do exhaustive search. Ex.: 3
+    :return: moveValuesTensor, standardDeviationTensor, legalMovesMask
+    """
+
+    legalMovesMask = authority.LegalMovesMask(position, playerList[0])
+    moveTensorShape = authority.MoveTensorShape()
+
+    nonZeroCoordsTensor = torch.nonzero(legalMovesMask)
+    moveValuesTensor = torch.zeros(moveTensorShape)
+    standardDeviationTensor = torch.zeros(moveTensorShape) - 1.0
+
+    neuralNetworkOutput = neuralNetwork(position.unsqueeze(0)).squeeze(0)
+    print ("SemiExhaustiveSoftMax(): neuralNetworkOutput = \n{}".format(neuralNetworkOutput))
+
+    nonZeroCoordsToNetOutputDic = dict()
+    for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
+        nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+        #print ("SemiExhaustiveExpectedMoveValues(): nonZeroCoords = {}".format(nonZeroCoords))
+        nonZeroCoordsToNetOutputDic[nonZeroCoords] = neuralNetworkOutput[
+            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3] ].item()
+
+    print ("SemiExhaustiveSoftMax(): nonZeroCoordsToNetOutputDic = \n{}".format(nonZeroCoordsToNetOutputDic))
+
+    legalMoveValuesList = list(nonZeroCoordsToNetOutputDic.values())
+    legalMoveValuesList.sort(reverse=True)
+    #print ("SemiExhaustiveExpectedMoveValues(): legalMoveValuesList = {}".format(legalMoveValuesList))
+    minimumValueForExhaustiveSearch = -2.0
+    if numberOfTopMovesToDevelop > 0 and numberOfTopMovesToDevelop < len(legalMoveValuesList):
+        minimumValueForExhaustiveSearch = legalMoveValuesList[numberOfTopMovesToDevelop - 1]
+    elif numberOfTopMovesToDevelop < 1:
+        minimumValueForExhaustiveSearch = 2.0
+    if currentDepth > maximumDepthOfSemiExhaustiveSearch:
+        minimumValueForExhaustiveSearch = 2.0
+    print ("SemiExhaustiveSoftMax(): minimumValueForExhaustiveSearch = {}".format(minimumValueForExhaustiveSearch))
+
+    # Go through the legal moves
+    for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
+        #print ("nonZeroCoordsNdx = {}".format(nonZeroCoordsNdx))
+        nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+        weirdMoveFlag = False#\
+            #nonZeroCoords[0] == 0 and \
+            #nonZeroCoords[1] == 0 and \
+            #nonZeroCoords[2] == 2 and \
+            #nonZeroCoords[3] == 0
+
+        firstMoveArr = numpy.zeros(moveTensorShape)
+        firstMoveArr[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 1
+        firstMoveTensor = torch.from_numpy(firstMoveArr).float()
+        positionAfterFirstMoveTensor, winner = authority.Move(position, playerList[0],
+                                                              firstMoveTensor)
+        if winner is playerList[0]:
+            #print ("{} won!".format(playerList[0]))
+            moveValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 1.0
+            standardDeviationTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 0.0
+            continue # Go back to the beginning of the for body
+        elif winner is playerList[1]:
+            #print ("{} won!".format(playerList[1]))
+            moveValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = -1.0
+            standardDeviationTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 0.0
+            continue  # Go back to the beginning of the for body
+        elif winner is 'draw':
+            moveValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 0.0
+            standardDeviationTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 0.0
+            continue  # Go back to the beginning of the for body
+
+        #print ("After checking the winner")
+        moveValue = neuralNetworkOutput[
+            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3] ].item()
+        #print ("SemiExhaustiveExpectedMoveValues(): nonZeroCoords = {}; moveValue = {}".format(nonZeroCoords, moveValue))
+        if moveValue >= minimumValueForExhaustiveSearch:
+            #print ("Exhaustive search")
+            # Swap the positions to present the situation as playerList[0] to the neural network
+            swappedPosition = authority.SwapPositions(positionAfterFirstMoveTensor,
+                                                      playerList[0], playerList[1])
+            nextValuesTensor, nextStandardDeviationTensor, nextLegalMovesMask = \
+            SemiExhaustiveSoftMax(
+                playerList,
+                authority,
+                neuralNetwork,
+                chooseHighestProbabilityIfAtLeast,
+                swappedPosition,
+                softMaxTemperature,
+                epsilon,
+                maximumDepthOfSemiExhaustiveSearch,
+                currentDepth + 1,
+                numberOfTopMovesToDevelop
+            )
+            # Find the highest value in the legal moves
+            nextHighestReward = -2.0
+            nextHighestRewardCoords = (0, 0, 0, 0)
+            nextNonZeroCoordsTensor = torch.nonzero(nextLegalMovesMask)
+            for nextNonZeroCoordsNdx in range(nextNonZeroCoordsTensor.size(0)):
+                nextNonZeroCoords = nextNonZeroCoordsTensor[nextNonZeroCoordsNdx]
+                if nextValuesTensor[
+                    nextNonZeroCoords[0], nextNonZeroCoords[1], nextNonZeroCoords[2], nextNonZeroCoords[3] ] \
+                        > nextHighestReward:
+                    nextHighestReward = nextValuesTensor[
+                        nextNonZeroCoords[0], nextNonZeroCoords[1], nextNonZeroCoords[2], nextNonZeroCoords[3] ]
+                    nextHighestRewardCoords = nextNonZeroCoords
+
+            #print ("SemiExhaustiveExpectedMoveValues(): nextValuesTensor = \n{}\nnextStandardDeviationTensor =\n{}\nnextLegalMovesMask =\n{}".format(nextValuesTensor, nextStandardDeviationTensor, nextLegalMovesMask))
+            # The opponent will choose the highest average reward
+            correspondingStdDeviation = nextStandardDeviationTensor[
+                nextHighestRewardCoords[0], nextHighestRewardCoords[1], nextHighestRewardCoords[2], nextHighestRewardCoords[3]
+            ]
+            # The actual average reward for the current player is -1 x the average reward
+            negatedReward = -1.0 * nextHighestReward
+            #print ("negatedReward = {}; correspondingStdDeviation = {}".format(negatedReward, correspondingStdDeviation))
+            moveValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = negatedReward
+            standardDeviationTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = correspondingStdDeviation
+        else:
+            if weirdMoveFlag:
+                print ("SemiExhaustiveSoftMax(): weirdMoveFlag, Monte-Carlo Tree Search")
+                print ("positionAfterFirstMoveTensor = \n{}".format(positionAfterFirstMoveTensor))
+
+            moveValuesTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = moveValue
+            standardDeviationTensor[nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 0
+            if weirdMoveFlag:
+                print ("averageReward = {}; rewardStandardDeviation = {}".format(averageReward, rewardStandardDeviation))
+
+    return moveValuesTensor, standardDeviationTensor, legalMovesMask
+
+
 def RewardStatistics(positionTensor, searchDepth, maxSearchDepth, playersList, player, authority,
                   chooseHighestProbabilityIfAtLeast,
                   neuralNetwork, softMaxTemperatureForSelfPlayEvaluation, epsilon,

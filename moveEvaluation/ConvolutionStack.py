@@ -135,6 +135,7 @@ class Net(torch.nn.Module):
             if runningSum >= randomNbr and chosenCoordinates is None:
                 chosenCoordinates = (nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3])
                 #print ("Net.ChooseAMove(): chosenCoordinates = {}".format(chosenCoordinates))
+                break # Stop looping
         if chosenCoordinates is None:# and randomNbr - runningSum < 0.000001: # Choose the last candidate
             chosenNdx = nonZeroCoordsTensor.size(0) - 1
             nonZeroCoords = nonZeroCoordsTensor[chosenNdx]

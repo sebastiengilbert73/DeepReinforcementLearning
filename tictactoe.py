@@ -229,15 +229,15 @@ def main():
             print (losingGamePositionsList[positionNdx])
     """
 
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 1))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 2))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 0))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 1))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 0))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 1))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (2, 0))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 0))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 1))
-    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (2, 2))
+    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (2, 2))
 
     """
     (rewardAverage, rewardStandardDeviation) = policy.RewardStatistics(
@@ -327,25 +327,24 @@ def main():
     """
 
     chooseHighestProbabilityIfAtLeast = 0.3
-    numberOfGamesForEvaluation = 31
-    softMaxTemperatureForSelfPlayEvaluation = 0.3
+    #numberOfGamesForEvaluation = 31
+    softMaxTemperature = 0.3
     epsilon = 0
-    maximumDepthOfSemiExhaustiveSearch = 1
-    numberOfTopMovesToDevelop = 5
+    maximumDepthOfSemiExhaustiveSearch = 5
+    numberOfTopMovesToDevelop = 4
     (moveValuesTensor, standardDeviationTensor, legalMovesMask) = \
-        policy.SemiExhaustiveExpectedMoveValues(
+        policy.SemiExhaustiveSoftMax(
             playersList,
             authority,
             neuralNetwork,
             chooseHighestProbabilityIfAtLeast,
             initialPosition,
-            numberOfGamesForEvaluation,
-            softMaxTemperatureForSelfPlayEvaluation,
+            softMaxTemperature,
             epsilon,
             maximumDepthOfSemiExhaustiveSearch,
-            currentDepth=0,
-            numberOfTopMovesToDevelop=numberOfTopMovesToDevelop
-        )
+            1,
+            numberOfTopMovesToDevelop
+    )
 
     print ("initialPosition = \n{}".format(initialPosition))
     print ("moveValuesTensor =\n{}".format(moveValuesTensor))
