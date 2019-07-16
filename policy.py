@@ -950,7 +950,7 @@ def SemiExhaustiveMiniMax(
     minimumValueForExhaustiveSearch = -2.0
     if numberOfTopMovesToDevelop > 0 and numberOfTopMovesToDevelop < len(legalMoveValuesList):
         minimumValueForExhaustiveSearch = legalMoveValuesList[numberOfTopMovesToDevelop - 1]
-    elif numberOfTopMovesToDevelop < 1:
+    elif numberOfTopMovesToDevelop == 0: # Allow negative value to mean "all of them" => exhaustive search
         minimumValueForExhaustiveSearch = 2.0
     if currentDepth > maximumDepthOfSemiExhaustiveSearch:
         minimumValueForExhaustiveSearch = 2.0
@@ -1571,6 +1571,55 @@ def GenerateMoveStatistics(playerList,
             softMaxTemperatureForSelfPlayEvaluation,
             epsilon,
             depthOfExhaustiveSearch
+        )
+        positionMoveStatistics.append((initialPosition, averageValuesTensor,
+                                      standardDeviationTensor, legalMovesNMask))
+
+    return positionMoveStatistics
+
+def GenerateMoveStatisticsWithMiniMax(
+                            playerList,
+                            authority,
+                            neuralNetwork,
+                            maximumNumberOfMovesForInitialPositions,
+                            numberOfInitialPositions,
+                            maximumDepthOfExhaustiveSearch,
+                            additionalStartingPositionsList=[]
+                            ):
+    # Create initial positions
+    initialPositions = additionalStartingPositionsList
+
+    while len(initialPositions) < numberOfInitialPositions: # Complete with random games
+        numberOfMoves = random.randint(0, maximumNumberOfMovesForInitialPositions)
+        if numberOfMoves % 2 == 1:
+            numberOfMoves += 1  # Make sure the last player to have played is playerList[1]
+        positionTensor = authority.InitialPosition()
+        winner = None
+        moveNdx = 0
+        while moveNdx < numberOfMoves and winner is None:
+            player = playerList[moveNdx % 2]
+            # print ("GenerateMoveStatistics(): player = {}".format(player))
+            randomMoveTensor = ChooseARandomMove(positionTensor, player, authority)
+            positionTensor, winner = authority.Move(positionTensor, player, randomMoveTensor)
+            moveNdx += 1
+        if winner is None:
+            initialPositions.append(positionTensor.clone())
+
+
+    # For each initial position, evaluate the value of each possible move through semi-exhaustive minimax
+    positionMoveStatistics = list()
+    for initialPosition in initialPositions:
+        (averageValuesTensor, standardDeviationTensor, legalMovesNMask) = \
+        SemiExhaustiveMiniMax(
+            playerList,
+            authority,
+            neuralNetwork,
+            0, # Always choose the highest value move
+            initialPosition,
+            epsilon=0,
+            maximumDepthOfSemiExhaustiveSearch=maximumDepthOfExhaustiveSearch,
+            currentDepth=1,
+            numberOfTopMovesToDevelop=-1 # Develop all moves => exhaustive search
         )
         positionMoveStatistics.append((initialPosition, averageValuesTensor,
                                       standardDeviationTensor, legalMovesNMask))

@@ -354,5 +354,19 @@ def main():
     initialPositionNetOutput = neuralNetwork(initialPosition.unsqueeze(0))
     print ("initialPositionNetOutput = {}".format(initialPositionNetOutput))
 
+    maximumNumberOfMovesForInitialPositions = 8
+    numberOfInitialPositions = 1
+    maximumDepthOfExhaustiveSearch = 2
+
+    positionMoveStatistics = policy.GenerateMoveStatisticsWithMiniMax(
+        playersList,
+        authority,
+        neuralNetwork,
+        maximumNumberOfMovesForInitialPositions,
+        numberOfInitialPositions,
+        maximumDepthOfExhaustiveSearch
+    )
+    print ("positionMoveStatistics = {}".format(positionMoveStatistics))
+
 if __name__ == '__main__':
     main()

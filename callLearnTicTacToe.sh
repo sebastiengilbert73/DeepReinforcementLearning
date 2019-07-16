@@ -1,6 +1,6 @@
 #! /bin/bash
 python learnTicTacToe.py \
-	--learningRate=0.01 \
+	--learningRate=0.001 \
 	--numberOfEpochs=1000 \
 	--minibatchSize=16 \
 	--outputDirectory='outputs' \
@@ -14,7 +14,7 @@ python learnTicTacToe.py \
 	--softMaxTemperatureForSelfPlayEvaluation=0.3 \
 	--averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic='{0.4: 0.3, 0.3: 0.3, 0.2: 0.3, 0.1: 0.3}' \
 	--epsilon=0.1 \
-	--depthOfExhaustiveSearch=1 \
+	--depthOfExhaustiveSearch=2 \
 	--chooseHighestProbabilityIfAtLeast=0.0 \
 
 

@@ -139,21 +139,32 @@ def main():
             softMaxTemperatureForSelfPlayEvaluation
         )
         """
-        positionStatisticsList = policy.GenerateMoveStatistics(
-            playerList,
-            authority,
-            neuralNetwork,
-            args.proportionOfRandomInitialPositions,
-            args.maximumNumberOfMovesForInitialPositions,
-            args.numberOfInitialPositions,
-            args.numberOfGamesForEvaluation,
-            softMaxTemperatureForSelfPlayEvaluation,
-            args.epsilon,
-            args.depthOfExhaustiveSearch,
-            args.chooseHighestProbabilityIfAtLeast,
-            losingGamesAgainstRandomPlayerPositionsList
-        )
-        # (initialPosition, averageValuesTensor, standardDeviationTensor, legalMovesNMask)
+        if epoch %2 == 3:
+            positionStatisticsList = policy.GenerateMoveStatistics(
+                playerList,
+                authority,
+                neuralNetwork,
+                args.proportionOfRandomInitialPositions,
+                args.maximumNumberOfMovesForInitialPositions,
+                args.numberOfInitialPositions,
+                args.numberOfGamesForEvaluation,
+                softMaxTemperatureForSelfPlayEvaluation,
+                args.epsilon,
+                args.depthOfExhaustiveSearch,
+                args.chooseHighestProbabilityIfAtLeast,
+                losingGamesAgainstRandomPlayerPositionsList
+            )
+        else:
+            positionStatisticsList = policy.GenerateMoveStatisticsWithMiniMax(
+                playerList,
+                authority,
+                neuralNetwork,
+                args.maximumNumberOfMovesForInitialPositions,
+                args.numberOfInitialPositions,
+                args.depthOfExhaustiveSearch,
+                losingGamesAgainstRandomPlayerPositionsList
+            )
+            # (initialPosition, averageValuesTensor, standardDeviationTensor, legalMovesNMask)
         #print ("positionStatisticsList = {}".format(positionStatisticsList))
 
         #print ("main(): len(positionToMoveProbabilitiesAndValueDic) = {}".format(len(positionToMoveProbabilitiesAndValueDic)))
