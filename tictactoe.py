@@ -229,15 +229,15 @@ def main():
             print (losingGamePositionsList[positionNdx])
     """
 
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 1))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 2))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 0))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 1))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 0))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (1, 1))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (1, 2))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 0))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 1))
-    #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (2, 2))
+    initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (2, 2))
 
     """
     (rewardAverage, rewardStandardDeviation) = policy.RewardStatistics(
@@ -328,18 +328,18 @@ def main():
 
     chooseHighestProbabilityIfAtLeast = 0.3
     #numberOfGamesForEvaluation = 31
-    softMaxTemperature = 0.3
+    #softMaxTemperature = 0.3
     epsilon = 0
-    maximumDepthOfSemiExhaustiveSearch = 5
-    numberOfTopMovesToDevelop = 4
+    maximumDepthOfSemiExhaustiveSearch = 2
+    numberOfTopMovesToDevelop = 3
+    #initialPosition = authority.SwapPositions(initialPosition, playersList[0], playersList[1])
     (moveValuesTensor, standardDeviationTensor, legalMovesMask) = \
-        policy.SemiExhaustiveSoftMax(
+        policy.SemiExhaustiveMiniMax(
             playersList,
             authority,
             neuralNetwork,
             chooseHighestProbabilityIfAtLeast,
             initialPosition,
-            softMaxTemperature,
             epsilon,
             maximumDepthOfSemiExhaustiveSearch,
             1,
@@ -351,6 +351,8 @@ def main():
     print ("standardDeviationTensor =\n{}".format(standardDeviationTensor))
     print ("legalMovesMask =\n{}".format(legalMovesMask))
 
+    initialPositionNetOutput = neuralNetwork(initialPosition.unsqueeze(0))
+    print ("initialPositionNetOutput = {}".format(initialPositionNetOutput))
 
 if __name__ == '__main__':
     main()
