@@ -12,7 +12,7 @@ python learnTicTacToe.py \
 	--weightForTheValueLoss=0.0 \
 	--numberOfStandardDeviationsBelowAverageForValueEstimate=0.0 \
 	--softMaxTemperatureForSelfPlayEvaluation=0.3 \
-	--averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic='{0.4: 0.3, 0.3: 0.3, 0.2: 0.3, 0.1: 0.3}' \
+	--averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic='{0.3: 0.3, 0.2: 0.2, 0.15: 0.1}' \
 	--epsilon=0.1 \
 	--depthOfExhaustiveSearch=2 \
 	--chooseHighestProbabilityIfAtLeast=0.0 \

@@ -51,6 +51,10 @@ def HasAlreadyBeenUsed(tensorToCheck, alreadyUsedTensors):
             return True
     return False
 
+def MinimumNumberOfMovesForInitialPositions(epoch):
+    minimumNumberOfMoves = args.maximumNumberOfMovesForInitialPositions - int(epoch/4)
+    return max(minimumNumberOfMoves, 0)
+
 def main():
 
     print ("learnTicTacToe.py main()")
@@ -130,6 +134,8 @@ def main():
 
         # Generate positions
         print ("Generating positions...")
+        minimumNumberOfMovesForInitialPositions = MinimumNumberOfMovesForInitialPositions(epoch)
+        maximumNumberOfMovesForInitialPositions = args.maximumNumberOfMovesForInitialPositions
         """positionMoveProbabilityAndValueList = policy.GeneratePositionMoveProbabilityAndValue(
             playerList, authority, neuralNetwork,
             args.proportionOfRandomInitialPositions,
@@ -139,7 +145,7 @@ def main():
             softMaxTemperatureForSelfPlayEvaluation
         )
         """
-        if epoch %2 == 3:
+        if epoch %2 == 0:
             positionStatisticsList = policy.GenerateMoveStatistics(
                 playerList,
                 authority,
@@ -159,7 +165,7 @@ def main():
                 playerList,
                 authority,
                 neuralNetwork,
-                args.maximumNumberOfMovesForInitialPositions,
+                (minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions),
                 args.numberOfInitialPositions,
                 args.depthOfExhaustiveSearch,
                 losingGamesAgainstRandomPlayerPositionsList
@@ -270,7 +276,7 @@ def main():
         neuralNetwork.Save(args.outputDirectory, 'tictactoe_' + str(epoch))
         #modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_tictactoe_" + str(epoch) + '.pth')
         #torch.save(neuralNetwork.state_dict(), modelParametersFilename)
-        if epoch % 20 == 0:
+        if epoch % 20 == -1:
             moveChoiceMode = 'ExpectedMoveValuesThroughSelfPlay'
             numberOfGames = 100
             depthOfExhaustiveSearch = 2

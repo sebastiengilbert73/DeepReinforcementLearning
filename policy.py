@@ -1581,7 +1581,7 @@ def GenerateMoveStatisticsWithMiniMax(
                             playerList,
                             authority,
                             neuralNetwork,
-                            maximumNumberOfMovesForInitialPositions,
+                            numberOfMovesForInitialPositionsMinMax,
                             numberOfInitialPositions,
                             maximumDepthOfExhaustiveSearch,
                             additionalStartingPositionsList=[]
@@ -1589,8 +1589,16 @@ def GenerateMoveStatisticsWithMiniMax(
     # Create initial positions
     initialPositions = additionalStartingPositionsList
 
+    minimumNumberOfMovesForInitialPositions = numberOfMovesForInitialPositionsMinMax[0]
+    maximumNumberOfMovesForInitialPositions = numberOfMovesForInitialPositionsMinMax[1]
+
+    if minimumNumberOfMovesForInitialPositions > maximumNumberOfMovesForInitialPositions:
+        temp = minimumNumberOfMovesForInitialPositions
+        minimumNumberOfMovesForInitialPositions = maximumNumberOfMovesForInitialPositions
+        maximumNumberOfMovesForInitialPositions = temp
+
     while len(initialPositions) < numberOfInitialPositions: # Complete with random games
-        numberOfMoves = random.randint(0, maximumNumberOfMovesForInitialPositions)
+        numberOfMoves = random.randint(minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions)
         if numberOfMoves % 2 == 1:
             numberOfMoves += 1  # Make sure the last player to have played is playerList[1]
         positionTensor = authority.InitialPosition()
