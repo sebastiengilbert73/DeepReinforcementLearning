@@ -196,6 +196,8 @@ class Authority(gameAuthority.GameAuthority):
 
 
 def main():
+    import multiprocessing
+
     print ("tic-tac-toe.py main()")
     import moveEvaluation.ConvolutionStack
     import time
@@ -209,25 +211,6 @@ def main():
                                          [(3, 16), (3, 16), (3, 16)],
                                          moveTensorShape)
     neuralNetwork.load_state_dict(torch.load('/home/sebastien/projects/DeepReinforcementLearning/outputs/ToKeep/Net_(2,1,3,3)_[(3,16),(3,16),(3,16)]_(1,1,3,3)_tictactoe_295.pth'))
-    """averageReward, winRate, drawRate, lossRate, losingGamesPositionsListList = \
-        policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
-                             playersList,
-                             authority,
-                             neuralNetwork, # If None, do random moves
-                             preApplySoftMax=True,
-                             softMaxTemperature=1.0,
-                             numberOfGames=20,
-                             moveChoiceMode='ExpectedMoveValuesThroughSelfPlay',
-                             numberOfGamesForMoveEvaluation=11)
-    
-    print ("averageReward = {}; winRate = {}; drawRate = {}; lossRate = {}".format(averageReward, winRate, drawRate, lossRate))
-
-    for (losingGamePositionsList, firstPlayer) in losingGamesPositionsListList:
-        print ("firstPlayer = {}".format(firstPlayer))
-        for positionNdx in range(len(losingGamePositionsList)):
-            print ("positionNdx = {}:".format(positionNdx))
-            print (losingGamePositionsList[positionNdx])
-    """
 
     initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 0))
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (0, 1))
@@ -239,134 +222,56 @@ def main():
     #initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[1], (2, 1))
     initialPosition, winner = authority.MoveWithCoordinates(initialPosition, playersList[0], (2, 2))
 
-    """
-    (rewardAverage, rewardStandardDeviation) = policy.RewardStatistics(
-        positionTensor=initialPosition,
-        searchDepth=1,
-        maxSearchDepth=0,
-        playersList=playersList,
-        player=playersList[0],
-        authority=authority,
-        chooseHighestProbabilityIfAtLeast=0.3,
-        neuralNetwork=neuralNetwork,
-        softMaxTemperatureForSelfPlayEvaluation=0.3,
-        epsilon=0,
-        numberOfGamesForEvaluation=31
-    )
-    print ("({}, {})".format(rewardAverage, rewardStandardDeviation) )
-    """
-    """
-    reward = policy.SimulateGameAndGetReward(playersList,
-                                             initialPosition,
-                                             playersList[1],
-                                             authority,
-                                             neuralNetwork,
-                                             chooseHighestProbabilityIfAtLeast=0.3,
-                                             preApplySoftMax=True,
-                                             softMaxTemperature=0.3,
-                                             epsilon=0
-                                             )
-    print ("reward = {}".format(reward))
-    """
-    """numberOfGamesForEvaluation = 41
-    softMaxTemperatureForSelfPlayEvaluation = 1.0
+    proportionOfRandomInitialPositions = 0.0
+    numberOfMovesForInitialPositionsMinMax = (0, 5)
+    numberOfInitialPositions = 4
+    numberOfGamesForEvaluation = 31
+    softMaxTemperatureForSelfPlayEvaluation = 0.3
     epsilon = 0
-    depthOfExhaustiveSearch = 2
-    (moveValuesTensor, standardDeviationTensor, legalMovesMask) = policy.PositionExpectedMoveValues(
+    depthOfExhaustiveSearch = 1
+    chooseHighestProbabilityIfAtLeast = 1.0
+
+    start_time = time.time()
+
+    """
+    outputs = policy.GenerateMoveStatistics(
         playersList,
         authority,
         neuralNetwork,
-        initialPosition,
+        proportionOfRandomInitialPositions,
+        numberOfMovesForInitialPositionsMinMax,
+        numberOfInitialPositions,
         numberOfGamesForEvaluation,
         softMaxTemperatureForSelfPlayEvaluation,
         epsilon,
-        depthOfExhaustiveSearch
-    )
-
-    print ("moveValuesTensor =\n{}".format(moveValuesTensor))
-    print ("standardDeviationTensor =\n{}".format(standardDeviationTensor))
-    print ("legalMovesMask = \n{}".format(legalMovesMask))
-    """
-    """chooseHighestProbabilityIfAtLeast = 1.0
-    startTime = time.time()
-    chosenMove = neuralNetwork.ChooseAMove(
-        initialPosition,
-        'X',
-        authority,
+        depthOfExhaustiveSearch,
         chooseHighestProbabilityIfAtLeast,
-        True,
-        softMaxTemperature=0.1,
-        epsilon=0.0
-    )
-    endTime = time.time()
-    print ("Delay = {}".format(endTime - startTime))
-    print ("chosenMove = \n{}".format(chosenMove))
-    """
-    """
-    numberOfGames = 100
-    depthOfExhaustiveSearch = 2
-    (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
-        policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
-            playersList,
-            authority,
-            neuralNetwork,
-            True,
-            0.1,
-            numberOfGames=numberOfGames,
-            moveChoiceMode='ExpectedMoveValuesThroughSelfPlay',
-            numberOfGamesForMoveEvaluation=21,  # ignored by SoftMax
-            depthOfExhaustiveSearch=depthOfExhaustiveSearch
+        additionalStartingPositionsList = []
         )
-    print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
-        averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
 
-    for losingGamePositionsList in losingGamePositionsListList:
-        print ("_______________________")
-        for position in losingGamePositionsList:
-            print ("\n{}".format(position))
+
     """
-
-    chooseHighestProbabilityIfAtLeast = 0.3
-    #numberOfGamesForEvaluation = 31
-    #softMaxTemperature = 0.3
-    epsilon = 0
-    maximumDepthOfSemiExhaustiveSearch = 2
-    numberOfTopMovesToDevelop = 3
-    #initialPosition = authority.SwapPositions(initialPosition, playersList[0], playersList[1])
-    (moveValuesTensor, standardDeviationTensor, legalMovesMask) = \
-        policy.SemiExhaustiveMiniMax(
-            playersList,
-            authority,
-            neuralNetwork,
-            chooseHighestProbabilityIfAtLeast,
-            initialPosition,
-            epsilon,
-            maximumDepthOfSemiExhaustiveSearch,
-            1,
-            numberOfTopMovesToDevelop
-    )
-
-    print ("initialPosition = \n{}".format(initialPosition))
-    print ("moveValuesTensor =\n{}".format(moveValuesTensor))
-    print ("standardDeviationTensor =\n{}".format(standardDeviationTensor))
-    print ("legalMovesMask =\n{}".format(legalMovesMask))
-
-    initialPositionNetOutput = neuralNetwork(initialPosition.unsqueeze(0))
-    print ("initialPositionNetOutput = {}".format(initialPositionNetOutput))
-
-    maximumNumberOfMovesForInitialPositions = 8
-    numberOfInitialPositions = 1
-    maximumDepthOfExhaustiveSearch = 2
-
-    positionMoveStatistics = policy.GenerateMoveStatisticsWithMiniMax(
+    outputs = policy.GenerateMoveStatisticsMultiprocessing(
         playersList,
         authority,
         neuralNetwork,
-        maximumNumberOfMovesForInitialPositions,
+        proportionOfRandomInitialPositions,
+        numberOfMovesForInitialPositionsMinMax,
         numberOfInitialPositions,
-        maximumDepthOfExhaustiveSearch
+        numberOfGamesForEvaluation,
+        softMaxTemperatureForSelfPlayEvaluation,
+        epsilon,
+        depthOfExhaustiveSearch,
+        chooseHighestProbabilityIfAtLeast,
+        additionalStartingPositionsList=[],
+        numberOfProcesses=4
     )
-    print ("positionMoveStatistics = {}".format(positionMoveStatistics))
+
+    end_time = time.time()
+    exectutionTime = end_time - start_time
+    print ("outputs = {}".format(outputs))
+    print ("executionTime = {}".format(exectutionTime))
+
 
 if __name__ == '__main__':
     main()

@@ -25,6 +25,7 @@ parser.add_argument('--epsilon', help='Probability to do a random move while gen
 parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The depth of exhaustive search, when generating move statitics. Default: 2', default=2)
 parser.add_argument('--chooseHighestProbabilityIfAtLeast', type=float, help='The threshold probability to trigger automatic choice of the highest probability, instead of choosing with roulette. Default: 1.0', default=1.0)
 parser.add_argument('--startWithNeuralNetwork', help='The starting neural network weights. Default: None', default=None)
+parser.add_argument('--numberOfProcesses', help='The number of processes. Default: 4', type=int, default=4)
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
 
@@ -74,7 +75,7 @@ def main():
     else:
         neuralNetwork = moveEvaluation.ConvolutionStack.Net(
         positionTensorShape,
-        [(3, 16), (3, 16), (3, 16)],
+        [(3, 32), (3, 32), (3, 32)],
         moveTensorShape
     )
 
@@ -97,17 +98,20 @@ def main():
     #modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_tictactoe_0.pth")
     #torch.save(neuralNetwork.state_dict(), modelParametersFilename)
     neuralNetwork.Save(args.outputDirectory, 'tictactoe_0')
-    (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate) = \
-        policy.AverageRewardAgainstARandomPlayer(
+
+    (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
+        policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
             playerList,
             authority,
             neuralNetwork,
             args.chooseHighestProbabilityIfAtLeast,
             True,
-            0.1,
-            300,
-            moveChoiceMode='SoftMax',
-            numberOfGamesForMoveEvaluation=31 # ignored by SoftMax
+            softMaxTemperature=0.1,
+            numberOfGames=300,
+            moveChoiceMode='SemiExhaustiveMiniMax',
+            numberOfGamesForMoveEvaluation=0,  # ignored by SoftMax
+            depthOfExhaustiveSearch=3,
+            numberOfTopMovesToDevelop=3
         )
     print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
         averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
@@ -145,20 +149,21 @@ def main():
             softMaxTemperatureForSelfPlayEvaluation
         )
         """
-        if epoch %2 == 0:
-            positionStatisticsList = policy.GenerateMoveStatistics(
+        if epoch %4 == 0:
+            positionStatisticsList = policy.GenerateMoveStatisticsMultiprocessing(
                 playerList,
                 authority,
                 neuralNetwork,
                 args.proportionOfRandomInitialPositions,
-                args.maximumNumberOfMovesForInitialPositions,
+                (minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions),
                 args.numberOfInitialPositions,
                 args.numberOfGamesForEvaluation,
                 softMaxTemperatureForSelfPlayEvaluation,
                 args.epsilon,
                 args.depthOfExhaustiveSearch,
                 args.chooseHighestProbabilityIfAtLeast,
-                losingGamesAgainstRandomPlayerPositionsList
+                losingGamesAgainstRandomPlayerPositionsList,
+                args.numberOfProcesses
             )
         else:
             positionStatisticsList = policy.GenerateMoveStatisticsWithMiniMax(
@@ -281,9 +286,10 @@ def main():
             numberOfGames = 100
             depthOfExhaustiveSearch = 2
         else:
-            moveChoiceMode = 'SoftMax'
+            moveChoiceMode = 'SemiExhaustiveMiniMax'
             numberOfGames = 300
-            depthOfExhaustiveSearch = 1
+            depthOfExhaustiveSearch = 3
+            numberOfTopMovesToDevelop = 3
         (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
             policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
             playerList,
@@ -295,7 +301,8 @@ def main():
             numberOfGames=numberOfGames,
             moveChoiceMode=moveChoiceMode,
             numberOfGamesForMoveEvaluation=41,  # ignored by SoftMax
-            depthOfExhaustiveSearch=depthOfExhaustiveSearch
+            depthOfExhaustiveSearch=depthOfExhaustiveSearch,
+            numberOfTopMovesToDevelop=numberOfTopMovesToDevelop
         )
         print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
             averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))

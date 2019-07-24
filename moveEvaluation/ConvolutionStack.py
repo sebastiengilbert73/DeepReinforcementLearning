@@ -199,6 +199,17 @@ class Net(torch.nn.Module):
         self.__init__(inputTensorSize, bodyStructure, outputTensorSize)
         self.load_state_dict(torch.load(filepath, map_location=lambda storage, location: storage))
 
+    def HighestActionValueMove(self, positionTensor, player, authority):
+        return self.ChooseAMove(
+            positionTensor,
+            player,
+            authority,
+            0.0,
+            True,
+            1.0,
+            0.0
+            )
+
 def main():
 
     print ("ConvolutionStack.py main()")

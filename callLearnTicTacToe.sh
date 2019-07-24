@@ -6,7 +6,7 @@ python learnTicTacToe.py \
 	--outputDirectory='outputs' \
 	--proportionOfRandomInitialPositions=0.5 \
 	--maximumNumberOfMovesForInitialPositions=8 \
-	--numberOfInitialPositions=256 \
+	--numberOfInitialPositions=128 \
 	--numberOfGamesForEvaluation=31 \
 	--learningRateExponentialDecay=0.99 \
 	--weightForTheValueLoss=0.0 \
@@ -15,7 +15,9 @@ python learnTicTacToe.py \
 	--averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic='{0.3: 0.3, 0.2: 0.2, 0.15: 0.1}' \
 	--epsilon=0.1 \
 	--depthOfExhaustiveSearch=2 \
-	--chooseHighestProbabilityIfAtLeast=0.0 \
+	--chooseHighestProbabilityIfAtLeast=1.0 \
+	--numberOfProcesses=4 \
+
 
 
 

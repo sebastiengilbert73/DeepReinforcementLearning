@@ -1,11 +1,15 @@
 import argparse
 import ast
 import torch
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
+# To avoid `RuntimeError: received 0 items of ancdata` Cf. https://github.com/pytorch/pytorch/issues/973
 import math
 import random
 import sys
 import statistics
 import numpy
+
 
 """
 class NeuralNetwork(torch.nn.Module):
@@ -905,7 +909,7 @@ def SemiExhaustiveMiniMax(
         playerList,
         authority,
         neuralNetwork,
-        chooseHighestProbabilityIfAtLeast,
+        #chooseHighestProbabilityIfAtLeast,
         position,
         epsilon,
         maximumDepthOfSemiExhaustiveSearch,
@@ -1000,7 +1004,7 @@ def SemiExhaustiveMiniMax(
                 playerList,
                 authority,
                 neuralNetwork,
-                chooseHighestProbabilityIfAtLeast,
+                #chooseHighestProbabilityIfAtLeast,
                 swappedPosition,
                 epsilon,
                 maximumDepthOfSemiExhaustiveSearch,
@@ -1379,7 +1383,7 @@ def AverageRewardAgainstARandomPlayerKeepLosingGames(
                         playerList,
                         authority,
                         neuralNetwork,
-                        chooseHighestProbabilityIfAtLeast,
+                        #chooseHighestProbabilityIfAtLeast,
                         positionTensor,
                         #softMaxTemperature,
                         epsilon=0,
@@ -1506,23 +1510,35 @@ def GenerateMoveStatistics(playerList,
                             authority,
                             neuralNetwork,
                             proportionOfRandomInitialPositions,
-                            maximumNumberOfMovesForInitialPositions,
+                            numberOfMovesForInitialPositionsMinMax,
                             numberOfInitialPositions,
                             numberOfGamesForEvaluation,
                             softMaxTemperatureForSelfPlayEvaluation,
                             epsilon,
                             depthOfExhaustiveSearch,
                             chooseHighestProbabilityIfAtLeast,
-                            additionalStartingPositionsList=[]
+                            additionalStartingPositionsList=[],
+                            resultsQueue = None, # For multiprocessing
+                            event=None, # For multiprocessing
+                            processNdx=None # For multiprocessing
                             ):
+
     # Create initial positions
     initialPositions = additionalStartingPositionsList
     selfPlayInitialPositions = int( (1 - proportionOfRandomInitialPositions) * numberOfInitialPositions)
 
+    minimumNumberOfMovesForInitialPositions = numberOfMovesForInitialPositionsMinMax[0]
+    maximumNumberOfMovesForInitialPositions = numberOfMovesForInitialPositionsMinMax[1]
+
+    if minimumNumberOfMovesForInitialPositions > maximumNumberOfMovesForInitialPositions:
+        temp = minimumNumberOfMovesForInitialPositions
+        minimumNumberOfMovesForInitialPositions = maximumNumberOfMovesForInitialPositions
+        maximumNumberOfMovesForInitialPositions = temp
+
     # Initial positions obtained through self-play
     createdSelfPlayInitialPositions = 0
     while createdSelfPlayInitialPositions < selfPlayInitialPositions:
-        numberOfMoves = random.randint(0, maximumNumberOfMovesForInitialPositions)
+        numberOfMoves = random.randint(minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions)
         if numberOfMoves % 2 == 1:
             numberOfMoves += 1 # Make sure the last player to have played is playerList[1]
         positionTensor = authority.InitialPosition()
@@ -1541,7 +1557,7 @@ def GenerateMoveStatistics(playerList,
             createdSelfPlayInitialPositions += 1
 
     while len(initialPositions) < numberOfInitialPositions: # Complete with random games
-        numberOfMoves = random.randint(0, maximumNumberOfMovesForInitialPositions)
+        numberOfMoves = random.randint(minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions)
         if numberOfMoves % 2 == 1:
             numberOfMoves += 1  # Make sure the last player to have played is playerList[1]
         positionTensor = authority.InitialPosition()
@@ -1575,7 +1591,89 @@ def GenerateMoveStatistics(playerList,
         positionMoveStatistics.append((initialPosition, averageValuesTensor,
                                       standardDeviationTensor, legalMovesNMask))
 
-    return positionMoveStatistics
+    if resultsQueue is not None and event is not None and processNdx is not None:
+        print ("GenerateMoveStatistics(): len(positionMoveStatistics) = {}; len(additionalStartingPositionsList) = {}".format(len(positionMoveStatistics), len(additionalStartingPositionsList)))
+        print ("GenerateMoveStatistics(): putting positionMoveStatistics:")
+        resultsQueue.put((processNdx, positionMoveStatistics))
+        event.wait()
+    else:
+        return positionMoveStatistics
+
+
+def GenerateMoveStatisticsMultiprocessing(
+                            playerList,
+                            authority,
+                            neuralNetwork,
+                            proportionOfRandomInitialPositions,
+                            numberOfMovesForInitialPositionsMinMax,
+                            numberOfInitialPositions,
+                            numberOfGamesForEvaluation,
+                            softMaxTemperatureForSelfPlayEvaluation,
+                            epsilon,
+                            depthOfExhaustiveSearch,
+                            chooseHighestProbabilityIfAtLeast,
+                            additionalStartingPositionsList=[],
+                            numberOfProcesses=4
+                            ):
+    print ("GenerateMoveStatisticsMultiprocessing()")
+    # Distribute the additional starting positions in separate lists
+    additionalStartingPositionsListList = [[] for processNdx in range(numberOfProcesses)]
+    for additionalStartingPositionNdx in range(len(additionalStartingPositionsList)):
+        chosenProcessNdx = additionalStartingPositionNdx % numberOfProcesses
+        additionalStartingPositionsListList[chosenProcessNdx].append(
+            additionalStartingPositionsList[additionalStartingPositionNdx])
+
+    # Number of initial positions per process
+    numberOfInitialPositionsList = []
+    for processNdx in range(numberOfProcesses):
+        numberOfInitialPositionsList.append(len(additionalStartingPositionsListList[processNdx]) )
+    runningProcessNdx = 0
+    while sum(numberOfInitialPositionsList) < numberOfInitialPositions:
+        runningProcessNdx = runningProcessNdx % numberOfProcesses
+        numberOfInitialPositionsList[runningProcessNdx] += 1
+        runningProcessNdx += 1
+
+    outputsList = []
+
+    # Start the processes
+    processList = []
+    processNdxToEventDic = {}
+    resultsQueue = torch.multiprocessing.Queue()
+    for processNdx in range(numberOfProcesses):
+        event = torch.multiprocessing.Event()
+        process = torch.multiprocessing.Process(
+            target=GenerateMoveStatistics,
+            args=(
+                playerList,
+                authority,
+                neuralNetwork,
+                proportionOfRandomInitialPositions,
+                numberOfMovesForInitialPositionsMinMax,
+                numberOfInitialPositionsList[processNdx],
+                numberOfGamesForEvaluation,
+                softMaxTemperatureForSelfPlayEvaluation,
+                epsilon,
+                depthOfExhaustiveSearch,
+                chooseHighestProbabilityIfAtLeast,
+                additionalStartingPositionsListList[processNdx],
+                resultsQueue,
+                event,
+                processNdx
+            )
+        )
+        process.start()
+        processList.append(process)
+        processNdxToEventDic[processNdx] = event
+
+
+    for resultNdx in range(numberOfProcesses):
+        (processNdx, positionMovesStatistics) = resultsQueue.get()
+        processNdxToEventDic[processNdx].set()
+        outputsList += positionMovesStatistics
+
+    for p in processList:
+        p.join()
+    return outputsList
 
 def GenerateMoveStatisticsWithMiniMax(
                             playerList,
@@ -1622,7 +1720,7 @@ def GenerateMoveStatisticsWithMiniMax(
             playerList,
             authority,
             neuralNetwork,
-            0, # Always choose the highest value move
+            #0, # Always choose the highest value move
             initialPosition,
             epsilon=0,
             maximumDepthOfSemiExhaustiveSearch=maximumDepthOfExhaustiveSearch,
