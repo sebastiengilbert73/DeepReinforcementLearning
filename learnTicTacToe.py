@@ -173,7 +173,7 @@ def main():
                 (minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions),
                 args.numberOfInitialPositions,
                 args.depthOfExhaustiveSearch,
-                losingGamesAgainstRandomPlayerPositionsList
+                []#losingGamesAgainstRandomPlayerPositionsList
             )
             # (initialPosition, averageValuesTensor, standardDeviationTensor, legalMovesNMask)
         #print ("positionStatisticsList = {}".format(positionStatisticsList))

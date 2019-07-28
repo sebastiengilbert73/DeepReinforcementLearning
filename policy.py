@@ -1522,10 +1522,10 @@ def GenerateMoveStatistics(playerList,
                             event=None, # For multiprocessing
                             processNdx=None # For multiprocessing
                             ):
-
+    print("GenerateMoveStatistics(): len(additionalStartingPositionsList) = {}".format(len(additionalStartingPositionsList)))
     # Create initial positions
     initialPositions = additionalStartingPositionsList
-    selfPlayInitialPositions = int( (1 - proportionOfRandomInitialPositions) * numberOfInitialPositions)
+    selfPlayInitialPositions = numberOfInitialPositions#int( (1 - proportionOfRandomInitialPositions) * numberOfInitialPositions)
 
     minimumNumberOfMovesForInitialPositions = numberOfMovesForInitialPositionsMinMax[0]
     maximumNumberOfMovesForInitialPositions = numberOfMovesForInitialPositionsMinMax[1]
@@ -1592,7 +1592,7 @@ def GenerateMoveStatistics(playerList,
                                       standardDeviationTensor, legalMovesNMask))
 
     if resultsQueue is not None and event is not None and processNdx is not None:
-        print ("GenerateMoveStatistics(): len(positionMoveStatistics) = {}; len(additionalStartingPositionsList) = {}".format(len(positionMoveStatistics), len(additionalStartingPositionsList)))
+        print ("GenerateMoveStatistics(): len(positionMoveStatistics) = {}".format(len(positionMoveStatistics) ))
         print ("GenerateMoveStatistics(): putting positionMoveStatistics:")
         resultsQueue.put((processNdx, positionMoveStatistics))
         event.wait()
@@ -1616,6 +1616,7 @@ def GenerateMoveStatisticsMultiprocessing(
                             numberOfProcesses=4
                             ):
     print ("GenerateMoveStatisticsMultiprocessing()")
+    print ("GenerateMoveStatisticsMultiprocessing() len(additionalStartingPositionsList) = {}".format(len(additionalStartingPositionsList)) )
     # Distribute the additional starting positions in separate lists
     additionalStartingPositionsListList = [[] for processNdx in range(numberOfProcesses)]
     for additionalStartingPositionNdx in range(len(additionalStartingPositionsList)):
@@ -1623,6 +1624,7 @@ def GenerateMoveStatisticsMultiprocessing(
         additionalStartingPositionsListList[chosenProcessNdx].append(
             additionalStartingPositionsList[additionalStartingPositionNdx])
 
+    print ("GenerateMoveStatisticsMultiprocessing(): additionalStartingPositionsListList = {}".format(additionalStartingPositionsListList))
     # Number of initial positions per process
     numberOfInitialPositionsList = []
     for processNdx in range(numberOfProcesses):
@@ -1632,6 +1634,7 @@ def GenerateMoveStatisticsMultiprocessing(
         runningProcessNdx = runningProcessNdx % numberOfProcesses
         numberOfInitialPositionsList[runningProcessNdx] += 1
         runningProcessNdx += 1
+    print ("GenerateMoveStatisticsMultiprocessing(): numberOfInitialPositionsList = {}".format(numberOfInitialPositionsList))
 
     outputsList = []
 

@@ -18,22 +18,27 @@ def animate(i):
     winRateList = []
     drawRateList = []
     lossRateList = []
-    for line in lines:
-        if len(line) > 1 and not line.startswith('epoch') and not line.startswith('0'):
+    headers = lines[0].split(',')
+    for lineNdx in range (1, len(lines)):
+        line = lines[lineNdx]
+        if len(line) > 1 :
             epoch, averageActionValuesTrainingLoss, averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate = \
              line.split(',')
             epochs.append(int(epoch))
-            averageActionValuesTrainingLossList.append(float(averageActionValuesTrainingLoss))
+            try:
+                averageActionValuesTrainingLossList.append(float(averageActionValuesTrainingLoss))
+            except ValueError:
+                averageActionValuesTrainingLossList.append(None)
             averageRewardAgainstRandomPlayerList.append(float(averageRewardAgainstRandomPlayer))
             winRateList.append(float(winRate))
             drawRateList.append(float(drawRate))
             lossRateList.append(float(lossRate))
     ax1.clear()
-    ax1.plot(epochs, averageActionValuesTrainingLossList, label='averageActionValuesTrainingLoss')
-    ax1.plot(epochs, averageRewardAgainstRandomPlayerList, label='averageRewardAgainstRandomPlayer')
-    ax1.plot(epochs, winRateList, label='winRate')
-    ax1.plot(epochs, drawRateList, label='drawRate')
-    ax1.plot(epochs, lossRateList, label='lossRate')
+    ax1.plot(epochs, averageActionValuesTrainingLossList, label=headers[1])
+    ax1.plot(epochs, averageRewardAgainstRandomPlayerList, label=headers[2])
+    ax1.plot(epochs, winRateList, label=headers[3])
+    ax1.plot(epochs, drawRateList, label=headers[4])
+    ax1.plot(epochs, lossRateList, label=headers[5])
     ax1.legend(shadow=True, fancybox=True)
 
 ani = animation.FuncAnimation(fig, animate, interval=1000)

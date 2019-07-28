@@ -22,9 +22,14 @@ parser.add_argument('--epsilon', help='Probability to do a random move while gen
 parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The depth of exhaustive search, when generating move statitics. Default: 1', default=1)
 parser.add_argument('--chooseHighestProbabilityIfAtLeast', type=float, help='The threshold probability to trigger automatic choice of the highest probability, instead of choosing with roulette. Default: 1.0', default=1.0)
 parser.add_argument('--startWithNeuralNetwork', help='The starting neural network weights. Default: None', default=None)
+parser.add_argument('--numberOfProcesses', help='The number of processes. Default: 4', type=int, default=4)
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
 
+
+def MinimumNumberOfMovesForInitialPositions(epoch):
+    minimumNumberOfMoves = args.maximumNumberOfMovesForInitialPositions - 20 - int(epoch/1)
+    return max(minimumNumberOfMoves, 0)
 
 def main():
     print ("learnConnect4.py main()")
@@ -44,7 +49,7 @@ def main():
     else:
         neuralNetwork = moveEvaluation.ConvolutionStack.Net(
             positionTensorShape,
-            [(5, 16), (5, 16), (5, 16)],
+            [(5, 32), (5, 32), (5, 32)],
             moveTensorShape
         )
     # Create the optimizer
@@ -66,17 +71,19 @@ def main():
     #modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_connect4_0.pth")
     #torch.save(neuralNetwork.state_dict(), modelParametersFilename)
     neuralNetwork.Save(args.outputDirectory, 'connect4_0')
-    (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate) = \
-        policy.AverageRewardAgainstARandomPlayer(
+    (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
+        policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
             playerList,
             authority,
             neuralNetwork,
             args.chooseHighestProbabilityIfAtLeast,
             True,
-            0.1,
-            100,
-            moveChoiceMode='SoftMax',
-            numberOfGamesForMoveEvaluation=31  # ignored by SoftMax
+            softMaxTemperature=0.1,
+            numberOfGames=300,
+            moveChoiceMode='SemiExhaustiveMiniMax',
+            numberOfGamesForMoveEvaluation=0,  # ignored by SoftMax
+            depthOfExhaustiveSearch=3,
+            numberOfTopMovesToDevelop=3
         )
     print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
         averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
@@ -94,21 +101,35 @@ def main():
         neuralNetwork.train()
 
         # Generate positions
+        minimumNumberOfMovesForInitialPositions = MinimumNumberOfMovesForInitialPositions(epoch)
+        maximumNumberOfMovesForInitialPositions = args.maximumNumberOfMovesForInitialPositions
         print ("Generating positions...")
-        positionStatisticsList = policy.GenerateMoveStatistics(
-            playerList,
-            authority,
-            neuralNetwork,
-            args.proportionOfRandomInitialPositions,
-            args.maximumNumberOfMovesForInitialPositions,
-            args.numberOfInitialPositions,
-            args.numberOfGamesForEvaluation,
-            softMaxTemperatureForSelfPlayEvaluation,
-            args.epsilon,
-            args.depthOfExhaustiveSearch,
-            args.chooseHighestProbabilityIfAtLeast,
-            losingGamesAgainstRandomPlayerPositionsList
-        )
+        if epoch %4 == 0:
+            positionStatisticsList = policy.GenerateMoveStatisticsMultiprocessing(
+                playerList,
+                authority,
+                neuralNetwork,
+                args.proportionOfRandomInitialPositions,
+                (minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions),
+                args.numberOfInitialPositions,
+                args.numberOfGamesForEvaluation,
+                softMaxTemperatureForSelfPlayEvaluation,
+                args.epsilon,
+                args.depthOfExhaustiveSearch,
+                args.chooseHighestProbabilityIfAtLeast,
+                losingGamesAgainstRandomPlayerPositionsList,
+                args.numberOfProcesses
+            )
+        else:
+            positionStatisticsList = policy.GenerateMoveStatisticsWithMiniMax(
+                playerList,
+                authority,
+                neuralNetwork,
+                (minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions),
+                args.numberOfInitialPositions,
+                args.depthOfExhaustiveSearch,
+                []#losingGamesAgainstRandomPlayerPositionsList
+            )
 
         actionValuesLossSum = 0.0
         minibatchIndicesList = policy.MinibatchIndices(len(positionStatisticsList), args.minibatchSize)
@@ -164,29 +185,30 @@ def main():
         #modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_connect4_" + str(epoch) + '.pth')
         #torch.save(neuralNetwork.state_dict(), modelParametersFilename)
         neuralNetwork.Save(args.outputDirectory, 'connect4_' + str(epoch))
-        if epoch % 200 == 0:
+        if epoch % 200 == -1:
             moveChoiceMode = 'ExpectedMoveValuesThroughSelfPlay'
             numberOfGames = 100
             depthOfExhaustiveSearch = 2
             monitoringSoftMaxTemperature = 0.1
         else:
-            moveChoiceMode = 'SoftMax'
-            numberOfGames = 100
-            depthOfExhaustiveSearch = 1
-            monitoringSoftMaxTemperature = 0.1
+            moveChoiceMode = 'SemiExhaustiveMiniMax'
+            numberOfGames = 300
+            depthOfExhaustiveSearch = 3
+            numberOfTopMovesToDevelop = 3
         (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
             policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
-            playerList,
-            authority,
-            neuralNetwork,
-            args.chooseHighestProbabilityIfAtLeast,
-            True,
-            softMaxTemperature=monitoringSoftMaxTemperature,
-            numberOfGames=numberOfGames,
-            moveChoiceMode=moveChoiceMode,
-            numberOfGamesForMoveEvaluation=41,  # ignored by SoftMax
-            depthOfExhaustiveSearch=depthOfExhaustiveSearch
-        )
+                playerList,
+                authority,
+                neuralNetwork,
+                args.chooseHighestProbabilityIfAtLeast,
+                True,
+                softMaxTemperature=softMaxTemperatureForSelfPlayEvaluation,
+                numberOfGames=numberOfGames,
+                moveChoiceMode=moveChoiceMode,
+                numberOfGamesForMoveEvaluation=41,  # ignored by SoftMax
+                depthOfExhaustiveSearch=depthOfExhaustiveSearch,
+                numberOfTopMovesToDevelop=numberOfTopMovesToDevelop
+            )
         print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
             averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
 
