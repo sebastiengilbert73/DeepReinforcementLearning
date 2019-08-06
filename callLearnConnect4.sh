@@ -11,7 +11,7 @@ python learnConnect4.py \
 	--learningRateExponentialDecay=0.99 \
 	--softMaxTemperatureForSelfPlayEvaluation=0.3 \
 	--epsilon=0.1 \
-	--depthOfExhaustiveSearch=2 \
+	--depthOfExhaustiveSearch=1 \
 	--chooseHighestProbabilityIfAtLeast=1.0 \
 	--numberOfProcesses=4 \
 

@@ -104,7 +104,7 @@ def main():
         minimumNumberOfMovesForInitialPositions = MinimumNumberOfMovesForInitialPositions(epoch)
         maximumNumberOfMovesForInitialPositions = args.maximumNumberOfMovesForInitialPositions
         print ("Generating positions...")
-        if epoch %4 == 0:
+        if epoch %4 == -1:
             positionStatisticsList = policy.GenerateMoveStatisticsMultiprocessing(
                 playerList,
                 authority,

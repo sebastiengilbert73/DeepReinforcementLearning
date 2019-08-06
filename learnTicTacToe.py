@@ -149,7 +149,7 @@ def main():
             softMaxTemperatureForSelfPlayEvaluation
         )
         """
-        if epoch %4 == 0:
+        if epoch %4 == -1: #0:
             positionStatisticsList = policy.GenerateMoveStatisticsMultiprocessing(
                 playerList,
                 authority,
