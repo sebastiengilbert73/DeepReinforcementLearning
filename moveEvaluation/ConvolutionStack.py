@@ -1,7 +1,7 @@
 import ast
 import torch
 import collections # OrderedDict
-import policy
+#import policy
 import random
 import numpy
 import os
