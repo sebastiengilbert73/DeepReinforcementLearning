@@ -4,10 +4,11 @@ import torch
 import time
 import random
 import time
-import policy
 import moveEvaluation.ConvolutionStack
 import tictactoe
 import connect4
+import expectedMoveValues
+import utilities
 
 parser = argparse.ArgumentParser()
 parser.add_argument('game', help='The game you want the neural networks to play')
@@ -31,7 +32,7 @@ def AskTheNeuralNetworkToChooseAMove(
         softMaxTemperature):
 
     moveValuesTensor, standardDeviationTensor, legalMovesMask = \
-    policy.SemiExhaustiveMiniMax(
+    expectedMoveValues.SemiExhaustiveMiniMax(
         playersList,
         authority,
         playingNeuralNetwork,
@@ -43,7 +44,7 @@ def AskTheNeuralNetworkToChooseAMove(
     )
 
     # Normalize probabilities
-    normalizedActionValuesTensor = policy.NormalizeProbabilities(moveValuesTensor,
+    normalizedActionValuesTensor = utilities.NormalizeProbabilities(moveValuesTensor,
                                                                  legalMovesMask,
                                                                  preApplySoftMax=True,
                                                                  softMaxTemperature=softMaxTemperature)

@@ -1,7 +1,7 @@
 import torch
-import policy
 import ast
 import gameAuthority
+import generateMoveStatistics
 
 firstPlayer = 'X'
 secondPlayer = 'O'
@@ -233,25 +233,8 @@ def main():
 
     start_time = time.time()
 
-    """
-    outputs = policy.GenerateMoveStatistics(
-        playersList,
-        authority,
-        neuralNetwork,
-        proportionOfRandomInitialPositions,
-        numberOfMovesForInitialPositionsMinMax,
-        numberOfInitialPositions,
-        numberOfGamesForEvaluation,
-        softMaxTemperatureForSelfPlayEvaluation,
-        epsilon,
-        depthOfExhaustiveSearch,
-        chooseHighestProbabilityIfAtLeast,
-        additionalStartingPositionsList = []
-        )
 
-
-    """
-    outputs = policy.GenerateMoveStatisticsMultiprocessing(
+    outputs = generateMoveStatistics.GenerateMoveStatisticsMultiprocessing(
         playersList,
         authority,
         neuralNetwork,

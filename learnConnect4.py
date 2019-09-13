@@ -2,7 +2,9 @@ import argparse
 import torch
 import os
 import ast
-import policy
+import utilities
+import expectedMoveValues
+import generateMoveStatistics
 import connect4
 import moveEvaluation.ConvolutionStack
 
@@ -39,10 +41,6 @@ def main():
     moveTensorShape = authority.MoveTensorShape()
     playerList = authority.PlayersList()
 
-    """neuralNetwork = policy.NeuralNetwork(positionTensorShape,
-                                         '[(5, 48)]',
-                                         moveTensorShape)
-    """
     if args.startWithNeuralNetwork is not None:
         neuralNetwork = moveEvaluation.ConvolutionStack.Net()
         neuralNetwork.Load(args.startWithNeuralNetwork)
@@ -72,7 +70,7 @@ def main():
     #torch.save(neuralNetwork.state_dict(), modelParametersFilename)
     neuralNetwork.Save(args.outputDirectory, 'connect4_0')
     (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
-        policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
+        expectedMoveValues.AverageRewardAgainstARandomPlayerKeepLosingGames(
             playerList,
             authority,
             neuralNetwork,
@@ -105,7 +103,7 @@ def main():
         maximumNumberOfMovesForInitialPositions = args.maximumNumberOfMovesForInitialPositions
         print ("Generating positions...")
         if epoch %4 == -1:
-            positionStatisticsList = policy.GenerateMoveStatisticsMultiprocessing(
+            positionStatisticsList = generateMoveStatistics.GenerateMoveStatisticsMultiprocessing(
                 playerList,
                 authority,
                 neuralNetwork,
@@ -121,7 +119,7 @@ def main():
                 args.numberOfProcesses
             )
         else:
-            positionStatisticsList = policy.GenerateMoveStatisticsWithMiniMax(
+            positionStatisticsList = generateMoveStatistics.GenerateMoveStatisticsWithMiniMax(
                 playerList,
                 authority,
                 neuralNetwork,
@@ -132,7 +130,7 @@ def main():
             )
 
         actionValuesLossSum = 0.0
-        minibatchIndicesList = policy.MinibatchIndices(len(positionStatisticsList), args.minibatchSize)
+        minibatchIndicesList = utilities.MinibatchIndices(len(positionStatisticsList), args.minibatchSize)
 
         for minibatchNdx in range(len(minibatchIndicesList)):
             print('.', end='', flush=True)
@@ -147,8 +145,8 @@ def main():
                 averageValue = averageValue * legalMovesMask.float()
                 minibatchTargetActionValues.append(averageValue)
                 minibatchLegalMovesMasks.append(legalMovesMask)
-            minibatchPositionsTensor = policy.MinibatchTensor(minibatchPositions)
-            minibatchTargetActionValuesTensor = policy.MinibatchTensor(minibatchTargetActionValues)
+            minibatchPositionsTensor = utilities.MinibatchTensor(minibatchPositions)
+            minibatchTargetActionValuesTensor = utilities.MinibatchTensor(minibatchTargetActionValues)
 
             optimizer.zero_grad()
 
@@ -179,7 +177,7 @@ def main():
 
         # Update the learning rate
         learningRate = learningRate * args.learningRateExponentialDecay
-        policy.adjust_lr(optimizer, learningRate)
+        utilities.adjust_lr(optimizer, learningRate)
 
         # Save the neural network
         #modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_connect4_" + str(epoch) + '.pth')
@@ -196,7 +194,7 @@ def main():
             depthOfExhaustiveSearch = 3
             numberOfTopMovesToDevelop = 3
         (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
-            policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
+            expectedMoveValues.AverageRewardAgainstARandomPlayerKeepLosingGames(
                 playerList,
                 authority,
                 neuralNetwork,

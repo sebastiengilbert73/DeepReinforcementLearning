@@ -12,9 +12,9 @@ python learnTicTacToe.py \
 	--weightForTheValueLoss=0.0 \
 	--numberOfStandardDeviationsBelowAverageForValueEstimate=0.0 \
 	--softMaxTemperatureForSelfPlayEvaluation=0.3 \
-	--averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic='{0.3: 0.3, 0.2: 0.2, 0.15: 0.1}' \
+	--averageTrainingLossToSoftMaxTemperatureForSelfPlayEvaluationDic='{0.3: 0.3, 0.2: 0.3, 0.15: 0.3}' \
 	--epsilon=0.1 \
-	--depthOfExhaustiveSearch=2 \
+	--depthOfExhaustiveSearch=1 \
 	--chooseHighestProbabilityIfAtLeast=1.0 \
 	--numberOfProcesses=4 \
 

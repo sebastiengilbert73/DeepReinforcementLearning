@@ -2,7 +2,9 @@ import argparse
 import torch
 import os
 import ast
-import policy
+import utilities
+import expectedMoveValues
+import generateMoveStatistics
 import tictactoe
 import moveEvaluation.ConvolutionStack
 
@@ -65,10 +67,6 @@ def main():
     moveTensorShape = authority.MoveTensorShape()
     playerList = authority.PlayersList()
 
-    """neuralNetwork = policy.NeuralNetwork(positionTensorShape,
-                                         '[(3, 16), (3, 16), (3, 16)]',
-                                         moveTensorShape)
-    """
     if args.startWithNeuralNetwork is not None:
         neuralNetwork = moveEvaluation.ConvolutionStack.Net()
         neuralNetwork.Load(args.startWithNeuralNetwork)
@@ -100,7 +98,7 @@ def main():
     neuralNetwork.Save(args.outputDirectory, 'tictactoe_0')
 
     (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
-        policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
+        expectedMoveValues.AverageRewardAgainstARandomPlayerKeepLosingGames(
             playerList,
             authority,
             neuralNetwork,
@@ -140,17 +138,9 @@ def main():
         print ("Generating positions...")
         minimumNumberOfMovesForInitialPositions = MinimumNumberOfMovesForInitialPositions(epoch)
         maximumNumberOfMovesForInitialPositions = args.maximumNumberOfMovesForInitialPositions
-        """positionMoveProbabilityAndValueList = policy.GeneratePositionMoveProbabilityAndValue(
-            playerList, authority, neuralNetwork,
-            args.proportionOfRandomInitialPositions,
-            args.maximumNumberOfMovesForInitialPositions,
-            args.numberOfInitialPositions,
-            args.numberOfGamesForEvaluation,
-            softMaxTemperatureForSelfPlayEvaluation
-        )
-        """
+
         if epoch %4 == -1: #0:
-            positionStatisticsList = policy.GenerateMoveStatisticsMultiprocessing(
+            positionStatisticsList = generateMoveStatistics.GenerateMoveStatisticsMultiprocessing(
                 playerList,
                 authority,
                 neuralNetwork,
@@ -166,7 +156,7 @@ def main():
                 args.numberOfProcesses
             )
         else:
-            positionStatisticsList = policy.GenerateMoveStatisticsWithMiniMax(
+            positionStatisticsList = generateMoveStatistics.GenerateMoveStatisticsWithMiniMax(
                 playerList,
                 authority,
                 neuralNetwork,
@@ -182,7 +172,7 @@ def main():
         #positionsList = list(positionToMoveProbabilitiesAndValueDic.keys())
 
         actionValuesLossSum = 0.0
-        minibatchIndicesList = policy.MinibatchIndices(len(positionStatisticsList), args.minibatchSize)
+        minibatchIndicesList = utilities.MinibatchIndices(len(positionStatisticsList), args.minibatchSize)
 
 
 
@@ -225,8 +215,8 @@ def main():
                 #print ("main(): legalMovesMask = {}".format(legalMovesMask))
                 #print ("main(): averageValueMinusNStdDev.max().item() = {}".format(averageValueMinusNStdDev.max().item()))
 
-            minibatchPositionsTensor = policy.MinibatchTensor(minibatchPositions)
-            minibatchTargetActionValuesTensor = policy.MinibatchTensor(minibatchTargetActionValues)
+            minibatchPositionsTensor = utilities.MinibatchTensor(minibatchPositions)
+            minibatchTargetActionValuesTensor = utilities.MinibatchTensor(minibatchTargetActionValues)
 
             optimizer.zero_grad()
 
@@ -273,7 +263,7 @@ def main():
 
         # Update the learning rates
         learningRate = learningRate * args.learningRateExponentialDecay
-        policy.adjust_lr(optimizer, learningRate)
+        utilities.adjust_lr(optimizer, learningRate)
 
         # Save the neural network
         #if validationLoss < bestValidationLoss:
@@ -291,7 +281,7 @@ def main():
             depthOfExhaustiveSearch = 3
             numberOfTopMovesToDevelop = 3
         (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
-            policy.AverageRewardAgainstARandomPlayerKeepLosingGames(
+            expectedMoveValues.AverageRewardAgainstARandomPlayerKeepLosingGames(
             playerList,
             authority,
             neuralNetwork,

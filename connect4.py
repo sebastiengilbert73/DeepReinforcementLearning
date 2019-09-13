@@ -1,5 +1,5 @@
 import torch
-import policy
+#import policy
 import gameAuthority
 
 class Authority(gameAuthority.GameAuthority):
