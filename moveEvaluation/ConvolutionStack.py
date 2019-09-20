@@ -1,7 +1,9 @@
 import ast
 import torch
 import collections # OrderedDict
-#import policy
+import expectedMoveValues
+import generateMoveStatistics
+import utilities
 import random
 import numpy
 import os
@@ -87,12 +89,12 @@ class Net(torch.nn.Module):
         chooseARandomMove = random.random() < epsilon
         if chooseARandomMove:
             #print ("Net.ChooseAMove(): Choosing a random move")
-            return policy.ChooseARandomMove(positionTensor, player, gameAuthority)
+            return utilities.ChooseARandomMove(positionTensor, player, gameAuthority)
 
         # Else: choose according to probabilities
         legalMovesMask = gameAuthority.LegalMovesMask(positionTensor, player)
 
-        normalizedActionValuesTensor = policy.NormalizeProbabilities(actionValuesTensor,
+        normalizedActionValuesTensor = utilities.NormalizeProbabilities(actionValuesTensor,
                                                                legalMovesMask,
                                                                preApplySoftMax=preApplySoftMax,
                                                                softMaxTemperature=softMaxTemperature)
