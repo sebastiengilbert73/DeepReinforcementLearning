@@ -35,8 +35,11 @@ class Committee():
 
         return medianValuesTensor
 
+    def __call__(self, inputTensor): # To implement outputTensor = committee(inputTensor), as an in-place equivalent to outputTensor = neuralNetwork(inputTensor)
+        return self.MedianValues(inputTensor)
+
 def main():
-    print ('NetEnsemble.py main()')
+    print ('netEnsemble.py main()')
     neuralNet1 = ConvolutionStack.Net()
     neuralNet1.Load('/home/sebastien/projects/DeepReinforcementLearning/outputs/ToKeep/Net_(2,1,6,7)_[(5,16),(5,16),(5,16)]_(1,1,1,7)_connect4_356.pth')
     neuralNet2 = ConvolutionStack.Net()
@@ -61,6 +64,27 @@ def main():
 
     medianValuesTensor = committee.MedianValues(torch.zeros((2, 1, 6, 7)).unsqueeze(0))
     print ("medianValuesTensor = {}".format(medianValuesTensor))
+
+    import connect4
+    authority = connect4.Authority()
+    playerList = authority.PlayersList()
+    epsilon = 0
+    maximumDepthOfSemiExhaustiveSearch = 2
+    numberOfTopMovesToDevelop = 3
+    inputTensor = authority.InitialPosition()
+    (moveValuesTensor, standardDeviationTensor, legalMovesMask) = expectedMoveValues.SemiExhaustiveMiniMax(
+        playerList,
+        authority,
+        committee,
+        inputTensor,
+        epsilon,
+        maximumDepthOfSemiExhaustiveSearch,
+        1,
+        numberOfTopMovesToDevelop
+    )
+    print ("moveValuesTensor = \n{}".format(moveValuesTensor))
+    print ("standardDeviationTensor = \n{}".format(standardDeviationTensor))
+    print ("legalMovesMask = \n{}".format(legalMovesMask))
 
 if __name__ == '__main__':
     main()

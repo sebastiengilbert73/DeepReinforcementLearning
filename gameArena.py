@@ -2,7 +2,9 @@ import argparse
 import ast
 import torch
 import time
-import policy
+import expectedMoveValues
+import generateMoveStatistics
+import utilities
 import moveEvaluation.ConvolutionStack
 import tictactoe
 import connect4
@@ -36,7 +38,7 @@ def AskTheNeuralNetworkToChooseAMove(
             epsilon,
             displayExpectedMoveValues,
             depthOfExhaustiveSearch):
-    moveValuesTensor, standardDeviationTensor, legalMovesMask = policy.PositionExpectedMoveValues(
+    moveValuesTensor, standardDeviationTensor, legalMovesMask = expectedMoveValues.PositionExpectedMoveValues(
         playersList,
         authority,
         neuralNetwork,
@@ -82,7 +84,6 @@ def main():
     positionTensorShape = authority.PositionTensorShape()
     moveTensorShape = authority.MoveTensorShape()
 
-    #neuralNetwork = policy.NeuralNetwork(positionTensorShape, args.networkBodyArchitecture, moveTensorShape)
     neuralNetwork = moveEvaluation.ConvolutionStack.Net(positionTensorShape,
                                                         ast.literal_eval(args.networkBodyArchitecture),
                                                         moveTensorShape)
