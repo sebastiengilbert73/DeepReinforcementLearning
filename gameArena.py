@@ -8,6 +8,7 @@ import utilities
 import moveEvaluation.ConvolutionStack
 import tictactoe
 import connect4
+import moveEvaluation.netEnsemble
 
 parser = argparse.ArgumentParser()
 parser.add_argument('game', help='The game you want to play')
@@ -19,7 +20,9 @@ parser.add_argument('--softMaxTemperature', type=float, help='The softMax temper
 parser.add_argument('--displayExpectedMoveValues', action='store_true', help='Display the expected move values, the standard deviations and the legal moves mask')
 parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The maximum number of moves for exhaustive search. Default: 2', default=2)
 parser.add_argument('--chooseHighestProbabilityIfAtLeast', type=float, help='The threshold probability to trigger automatic choice of the highest probability, instead of choosing with roulette. Default: 1.0', default=1.0)
+parser.add_argument('--numberOfTopMovesToDevelop', type=int, help='For SemiExhaustiveMinimax, the number of top moves to develop. Default: 3', default=3)
 args = parser.parse_args()
+
 
 def DisplayExpectedMoveValues(moveValuesTensor, standardDeviationTensor, legalMovesMask, chosenMoveTensor):
     print ("moveValuesTensor = \n{}".format(moveValuesTensor))
@@ -69,6 +72,46 @@ def AskTheNeuralNetworkToChooseAMove(
 
     return chosenMoveTensor
 
+def SemiExhaustiveMinimaxHighestValue(
+        playerList,
+        authority,
+        neuralNetwork,
+        positionTensor,
+        epsilon,
+        maximumDepthOfSemiExhaustiveSearch,
+        numberOfTopMovesToDevelop,
+        displayExpectedMoveValues,
+    ):
+    (moveValuesTensor, standardDeviationTensor, legalMovesMask) = expectedMoveValues.SemiExhaustiveMiniMax(
+        playerList,
+        authority,
+        neuralNetwork,
+        positionTensor,
+        epsilon,
+        maximumDepthOfSemiExhaustiveSearch,
+        1,
+        numberOfTopMovesToDevelop
+    )
+    chosenMoveTensor = torch.zeros(authority.MoveTensorShape())
+    highestValue = -1E9
+    highestValueCoords = (0, 0, 0, 0)
+    nonZeroCoordsTensor = torch.nonzero(legalMovesMask)
+    for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
+        nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+        if moveValuesTensor[
+            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] > highestValue:
+            highestValue = moveValuesTensor[
+                nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
+            highestValueCoords = nonZeroCoords
+    chosenMoveTensor[
+        highestValueCoords[0], highestValueCoords[1], highestValueCoords[2], highestValueCoords[
+            3]] = 1.0
+
+    if displayExpectedMoveValues:
+        DisplayExpectedMoveValues(moveValuesTensor, standardDeviationTensor, legalMovesMask, chosenMoveTensor)
+
+    return chosenMoveTensor
+
 def main():
     print ("gameArena.py main()")
 
@@ -84,12 +127,21 @@ def main():
     positionTensorShape = authority.PositionTensorShape()
     moveTensorShape = authority.MoveTensorShape()
 
-    neuralNetwork = moveEvaluation.ConvolutionStack.Net(positionTensorShape,
+    #if type(ast.literal_eval(args.neuralNetwork)) is list: # Neural networks ensemble
+    if args.neuralNetwork.startswith('[') and args.neuralNetwork.endswith(']'): # List => neural networks ensemble
+        committeeMembersList = []
+        for neuralNetworkFilepath in ast.literal_eval(args.neuralNetwork):
+            committeeMember = moveEvaluation.ConvolutionStack.Net()
+            committeeMember.Load(neuralNetworkFilepath)
+            committeeMembersList.append(committeeMember)
+        neuralNetwork = moveEvaluation.netEnsemble.Committee(committeeMembersList)
+    else: # Single neural network
+        neuralNetwork = moveEvaluation.ConvolutionStack.Net(positionTensorShape,
                                                         ast.literal_eval(args.networkBodyArchitecture),
                                                         moveTensorShape)
-    if args.neuralNetwork is not None:
-        neuralNetwork.Load(args.neuralNetwork)
-        #neuralNetwork.load_state_dict(torch.load(args.neuralNetwork))
+        if args.neuralNetwork is not None:
+            neuralNetwork.Load(args.neuralNetwork)
+
     winner = None
     numberOfPlayedMoves = 0
     player = playersList[numberOfPlayedMoves % 2]
@@ -98,7 +150,7 @@ def main():
 
     if args.opponentPlaysFirst:
         humanPlayerTurn = 1
-        moveTensor = AskTheNeuralNetworkToChooseAMove(
+        """moveTensor = AskTheNeuralNetworkToChooseAMove(
             playersList,
             authority,
             neuralNetwork,
@@ -109,6 +161,18 @@ def main():
             epsilon=0,
             displayExpectedMoveValues=args.displayExpectedMoveValues,
             depthOfExhaustiveSearch=args.depthOfExhaustiveSearch)
+        """
+        moveTensor = SemiExhaustiveMinimaxHighestValue(
+            playersList,
+            authority,
+            neuralNetwork,
+            positionTensor,
+            epsilon=0,
+            maximumDepthOfSemiExhaustiveSearch=args.depthOfExhaustiveSearch,
+            numberOfTopMovesToDevelop=args.numberOfTopMovesToDevelop,
+            displayExpectedMoveValues=args.displayExpectedMoveValues,
+        )
+
         positionTensor, winner = authority.Move(positionTensor, playersList[0], moveTensor)
         numberOfPlayedMoves = 1
         player = playersList[numberOfPlayedMoves % 2]
@@ -127,7 +191,7 @@ def main():
             if player is playersList[1]:
                 positionTensor = authority.SwapPositions(positionTensor, playersList[0], playersList[1])
             startTime = time.time()
-            moveTensor = AskTheNeuralNetworkToChooseAMove(
+            """moveTensor = AskTheNeuralNetworkToChooseAMove(
                 playersList,
                 authority,
                 neuralNetwork,
@@ -138,6 +202,17 @@ def main():
                 epsilon=0,
                 displayExpectedMoveValues=args.displayExpectedMoveValues,
                 depthOfExhaustiveSearch=args.depthOfExhaustiveSearch)
+            """
+            moveTensor = SemiExhaustiveMinimaxHighestValue(
+                playersList,
+                authority,
+                neuralNetwork,
+                positionTensor,
+                epsilon=0,
+                maximumDepthOfSemiExhaustiveSearch=args.depthOfExhaustiveSearch,
+                numberOfTopMovesToDevelop=args.numberOfTopMovesToDevelop,
+                displayExpectedMoveValues=args.displayExpectedMoveValues,
+            )
             endTime = time.time()
             decisionTime = endTime - startTime
             print ("decisionTime = {}".format(decisionTime))
