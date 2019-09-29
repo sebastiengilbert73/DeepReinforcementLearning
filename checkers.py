@@ -101,7 +101,66 @@ class Authority(gameAuthority.GameAuthority):
         return swappedPosition
 
     def Move(self, currentPositionTensor, player, moveTensor):
-        pass
+        if moveTensor.shape != self.moveTensorShape:
+            raise ValueError("Authority.Move(): moveTensor.shape ({}) is not {}".format(moveTensor.shape, self.moveTensorShape))
+        # TODO: Check if the opponent can take a piece: if so, do nothing (the equivalent of giving back the turn for multiple jumps)
+
+        newPositionTensor = currentPositionTensor.clone()
+        nonZeroCoords = moveTensor.nonzero()
+        print ("Move(): nonZeroCoords = {}".format(nonZeroCoords))
+        print ("Move(): nonZeroCoords.shape = {}".format(nonZeroCoords.shape))
+        if nonZeroCoords.shape[0] != 1:
+            raise ValueError("checkers.py Move(): The number of non-zero values in the move tensor ({}) is not 1".format(nonZeroCoords.shape[0]))
+        print ("Move(): nonZeroCoords[0] = {}".format(nonZeroCoords[0]))
+        squareOccupation = self.SquareOccupation(currentPositionTensor, nonZeroCoords[0][2], nonZeroCoords[0][3])
+        print ("squareOccupation = {}".format(squareOccupation))
+        if squareOccupation is None:
+            raise ValueError("checkers.py Move(): Attempt to move from an empty square ({}, {})".format(nonZeroCoords[0][2], nonZeroCoords[0][3]))
+        if squareOccupation.startswith('red') and player is self.playersList[0]:
+            raise ValueError("checkers.py Move(): Black player attempts to move a red piece in ({}, {})".format(nonZeroCoords[0][2], nonZeroCoords[0][3]))
+        if squareOccupation.startswith('black') and player is self.playersList[1]:
+            raise ValueError("checkers.py Move(): Red player attempts to move a black piece in ({}, {})".format(nonZeroCoords[0][2],
+                                                                                                   nonZeroCoords[0][3]))
+        if (squareOccupation is 'blackChecker') and \
+            (nonZeroCoords[0][0] == 2 or nonZeroCoords[0][0] == 3):
+            raise ValueError("checkers.py Move(): Attempt to move a black checker south in ({}, {})".format(nonZeroCoords[0][2],
+                                                                                                   nonZeroCoords[0][3]))
+        if (squareOccupation is 'redChecker') and \
+            (nonZeroCoords[0][0] == 0 or nonZeroCoords[0][0] == 1):
+            raise ValueError(
+                "checkers.py Move(): Attempt to move a red checker north in ({}, {})".format(nonZeroCoords[0][2],
+                                                                                               nonZeroCoords[0][3]))
+
+        destinationSquare = [nonZeroCoords[0][2].item(), nonZeroCoords[0][3].item()]
+        moveTypeIndex = nonZeroCoords[0][0]
+        movingPieceIndex = self.pieceToPositionPlaneIndexDic[squareOccupation]
+        if moveTypeIndex == 0: # NW
+            destinationSquare[0] -= 1
+            destinationSquare[1] -= 1
+        elif moveTypeIndex == 1: # NE
+            destinationSquare[0] -= 1
+            destinationSquare[1] += 1
+        elif moveTypeIndex == 2: # SE
+            destinationSquare[0] += 1
+            destinationSquare[1] += 1
+        else: # 3 => SW
+            destinationSquare[0] += 1
+            destinationSquare[1] -= 1
+        print ("Move(): destinationSquare = {}".format(destinationSquare))
+        if destinationSquare[0] < 0 or destinationSquare[0] > 7 or destinationSquare[1] < 0 or destinationSquare[1] > 7:
+            raise ValueError("checkers.py Move(): Attempt to move out of the checkerboard at ({}, {})".format(destinationSquare[0], destinationSquare[1]))
+
+        destinationSquareOccupation = self.SquareOccupation(currentPositionTensor, destinationSquare[0], destinationSquare[1])
+        if destinationSquareOccupation is None:
+            newPositionTensor[movingPieceIndex, 0, nonZeroCoords[0][2], nonZeroCoords[0][3]] = 0
+            newPositionTensor[movingPieceIndex, 0, destinationSquare[0], destinationSquare[1]] = 1
+        else:
+            if destinationSquareOccupation.startswith('black') and player is self.playersList[0]:
+                raise ValueError("Move(): Black player attempts to move to a square occupied by a black piece in ({}, {})".format(destinationSquare[0], destinationSquare[1]))
+            if destinationSquareOccupation.startswith('red') and player is self.playersList[1]:
+                raise ValueError("Move(): Red player attempts to move to a square occupied by a red piece in ({}, {})".format(destinationSquare[0], destinationSquare[1]))
+
+        return newPositionTensor, None
 
     def Winner(self, positionTensor, lastPlayerWhoPlayed):
         pass
@@ -123,19 +182,14 @@ def main():
     print ("checkers.py main()")
     authority = Authority()
     initialPosition = authority.InitialPosition()
-    initialPosition[1, 0, 5, 0] = 0
-    initialPosition[0, 0, 5, 0] = 1
-
-    initialPosition[1, 0, 5, 4] = 0
-
-    initialPosition[2, 0, 0, 7] = 0
-    initialPosition[3, 0, 0, 7] = 1
-    authority.Display(initialPosition)
-
-    print ("authority.SquareOccupation(initialPosition, 5, 0) = {}".format(authority.SquareOccupation(initialPosition, 5, 0)))
     playersList = authority.PlayersList()
-    swappedPosition = authority.SwapPositions(initialPosition, playersList[0], playersList[1])
-    authority.Display(swappedPosition)
+
+    authority.Display(initialPosition)
+    moveTensor = torch.zeros(authority.MoveTensorShape())
+    moveTensor[3, 0, 1, 2] = 1
+
+    positionTensor, winner = authority.Move(initialPosition, playersList[1], moveTensor)
+    authority.Display(positionTensor)
 
 if __name__ == '__main__':
     main()

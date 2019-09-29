@@ -13,5 +13,5 @@ python gameArena.py \
 	--displayExpectedMoveValues \
 	--depthOfExhaustiveSearch=3 \
 	--numberOfTopMovesToDevelop=7 \
-	#--opponentPlaysFirst
+	--opponentPlaysFirst
 
