@@ -12,7 +12,6 @@ python gameArena.py \
 	--softMaxTemperature=0.3 \
 	--displayExpectedMoveValues \
 	--depthOfExhaustiveSearch=3 \
-	--opponentPlaysFirst \
-	--numberOfTopMovesToDevelop=4 \
-	
+	--numberOfTopMovesToDevelop=7 \
+	#--opponentPlaysFirst
 

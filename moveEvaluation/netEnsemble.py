@@ -40,38 +40,40 @@ class Committee():
 
 def main():
     print ('netEnsemble.py main()')
-    #neuralNet1 = moveEvaluation.ConvolutionStack.Net()
+    #neuralNet1 = ConvolutionStack.Net()
     #neuralNet1.Load('/home/sebastien/projects/DeepReinforcementLearning/outputs/ToKeep/Net_(2,1,6,7)_[(5,16),(5,16),(5,16)]_(1,1,1,7)_connect4_356.pth')
-    neuralNet2 = moveEvaluation.ConvolutionStack.Net()
+    neuralNet2 = ConvolutionStack.Net()
     neuralNet2.Load('/home/sebastien/projects/DeepReinforcementLearning/outputs/ToKeep/Net_(2,1,6,7)_[(5,32),(5,32),(5,32)]_(1,1,1,7)_connect4_defeatRate0.0033.pth')
-    neuralNet3 = moveEvaluation.ConvolutionStack.Net()
+    neuralNet3 = ConvolutionStack.Net()
     neuralNet3.Load('/home/sebastien/projects/DeepReinforcementLearning/outputs/ToKeep/Net_(2,1,6,7)_[(5,32),(5,32),(5,32)]_(1,1,1,7)_connect4_defeatRate0.0033b.pth')
-    neuralNet4 = moveEvaluation.ConvolutionStack.Net()
+    neuralNet4 = ConvolutionStack.Net()
     neuralNet4.Load('/home/sebastien/projects/DeepReinforcementLearning/outputs/ToKeep/Net_(2,1,6,7)_[(5,32),(5,32),(5,32)]_(1,1,1,7)_connect4_defeatRate0.0033c.pth')
-    neuralNet5 = moveEvaluation.ConvolutionStack.Net()
+    neuralNet5 = ConvolutionStack.Net()
     neuralNet5.Load('/home/sebastien/projects/DeepReinforcementLearning/outputs/ToKeep/Net_(2,1,6,7)_[(5,32),(5,32),(5,32)]_(1,1,1,7)_connect4_defeatRate0.0033d.pth')
-    neuralNet6 = moveEvaluation.ConvolutionStack.Net()
+    neuralNet6 = ConvolutionStack.Net()
     neuralNet6.Load('/home/sebastien/projects/DeepReinforcementLearning/outputs/ToKeep/Net_(2,1,6,7)_[(5,32),(5,32),(5,32)]_(1,1,1,7)_connect4_defeatRate0.0033e.pth')
-    neuralNet7 = moveEvaluation.ConvolutionStack.Net()
+    neuralNet7 = ConvolutionStack.Net()
     neuralNet7.Load('/home/sebastien/projects/DeepReinforcementLearning/outputs/ToKeep/Net_(2,1,6,7)_[(5,32),(5,32),(5,32)]_(1,1,1,7)_connect4_defeatRate0.pth')
     neuralNetsList = [neuralNet2, neuralNet3, neuralNet4, neuralNet5, neuralNet6, neuralNet7]
 
     committee = Committee(neuralNetsList)
 
-    inputTensor = torch.zeros((2, 1, 6, 7)).unsqueeze(0)
-    outputTensorsList = committee.forward(inputTensor)
-    print ('main(): outputTensorsList = {}'.format(outputTensorsList))
+    #inputTensor = torch.zeros((2, 1, 6, 7)).unsqueeze(0)
+    #outputTensorsList = committee.forward(inputTensor)
+    #print ('main(): outputTensorsList = {}'.format(outputTensorsList))
 
-    medianValuesTensor = committee.MedianValues(torch.zeros((2, 1, 6, 7)).unsqueeze(0))
-    print ("medianValuesTensor = {}".format(medianValuesTensor))
+    #medianValuesTensor = committee.MedianValues(torch.zeros((2, 1, 6, 7)).unsqueeze(0))
+    #print ("medianValuesTensor = {}".format(medianValuesTensor))
 
     import connect4
     authority = connect4.Authority()
     playerList = authority.PlayersList()
     epsilon = 0
-    maximumDepthOfSemiExhaustiveSearch = 3
+    maximumDepthOfSemiExhaustiveSearch = 2
     numberOfTopMovesToDevelop = 4
     inputTensor = authority.InitialPosition()
+
+    authority.Display(inputTensor)
     (moveValuesTensor, standardDeviationTensor, legalMovesMask) = expectedMoveValues.SemiExhaustiveMiniMax(
         playerList,
         authority,
