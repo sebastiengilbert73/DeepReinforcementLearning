@@ -134,18 +134,11 @@ class Authority(gameAuthority.GameAuthority):
         destinationSquare = [nonZeroCoords[0][2].item(), nonZeroCoords[0][3].item()]
         moveTypeIndex = nonZeroCoords[0][0]
         movingPieceIndex = self.pieceToPositionPlaneIndexDic[squareOccupation]
-        if moveTypeIndex == 0: # NW
-            destinationSquare[0] -= 1
-            destinationSquare[1] -= 1
-        elif moveTypeIndex == 1: # NE
-            destinationSquare[0] -= 1
-            destinationSquare[1] += 1
-        elif moveTypeIndex == 2: # SE
-            destinationSquare[0] += 1
-            destinationSquare[1] += 1
-        else: # 3 => SW
-            destinationSquare[0] += 1
-            destinationSquare[1] -= 1
+
+        moveVector = self.MoveVector(moveTypeIndex)
+        destinationSquare[0] += moveVector[0]
+        destinationSquare[1] += moveVector[1]
+
         print ("Move(): destinationSquare = {}".format(destinationSquare))
         if destinationSquare[0] < 0 or destinationSquare[0] > 7 or destinationSquare[1] < 0 or destinationSquare[1] > 7:
             raise ValueError("checkers.py Move(): Attempt to move out of the checkerboard at ({}, {})".format(destinationSquare[0], destinationSquare[1]))
@@ -154,19 +147,213 @@ class Authority(gameAuthority.GameAuthority):
         if destinationSquareOccupation is None:
             newPositionTensor[movingPieceIndex, 0, nonZeroCoords[0][2], nonZeroCoords[0][3]] = 0
             newPositionTensor[movingPieceIndex, 0, destinationSquare[0], destinationSquare[1]] = 1
-        else:
+        else: # The destination square is occupied: it should be a jump
             if destinationSquareOccupation.startswith('black') and player is self.playersList[0]:
-                raise ValueError("Move(): Black player attempts to move to a square occupied by a black piece in ({}, {})".format(destinationSquare[0], destinationSquare[1]))
+                raise ValueError("checkers.py Move(): Black player attempts to move to a square occupied by a black piece in ({}, {})".format(destinationSquare[0], destinationSquare[1]))
             if destinationSquareOccupation.startswith('red') and player is self.playersList[1]:
-                raise ValueError("Move(): Red player attempts to move to a square occupied by a red piece in ({}, {})".format(destinationSquare[0], destinationSquare[1]))
+                raise ValueError("checkers.py Move(): Red player attempts to move to a square occupied by a red piece in ({}, {})".format(destinationSquare[0], destinationSquare[1]))
+            if destinationSquareOccupation.startswith('black') and player is self.playersList[1] or \
+                    destinationSquareOccupation.startswith('red') and player is self.playersList[0]:
+                jumpSquare = [destinationSquare[0] + moveVector[0], destinationSquare[1] + moveVector[1]] # jumpSquare is the square 2 diagonals away, where the piece will jump
+                jumpSquareOccupation = self.SquareOccupation(currentPositionTensor, jumpSquare[0], jumpSquare[1])
+                if jumpSquareOccupation is not None:
+                    raise ValueError("checkers.py Move(): Trying to jump to an occupied square ({}, {})".format(jumpSquare[0], jumpSquare[1]))
+                newPositionTensor[self.pieceToPositionPlaneIndexDic[destinationSquareOccupation], 0, destinationSquare[0], destinationSquare[1]] = 0
+                newPositionTensor[movingPieceIndex, 0, nonZeroCoords[0][2], nonZeroCoords[0][3]] = 0
+                newPositionTensor[movingPieceIndex, 0, jumpSquare[0], jumpSquare[1]] = 1
 
-        return newPositionTensor, None
+        # TODO: Check for coronation
+        return newPositionTensor, None # TODO: check if there is a winner
 
     def Winner(self, positionTensor, lastPlayerWhoPlayed):
         pass
 
     def LegalMovesMask(self, positionTensor, player):
-        pass
+        if positionTensor.shape != self.positionTensorShape:
+            raise ValueError("Authority.LegalMovesMask(): The shape of positionTensor ({}) is not {}".format(
+                positionTensor.shape, self.positionTensorShape))
+        legalMovesMask = torch.zeros(self.moveTensorShape).byte()
+
+        if player is self.playersList[0]:
+            # Black kings
+            blackKingsCoords = torch.nonzero(positionTensor[self.pieceToPositionPlaneIndexDic['blackKing']])
+            for blackKingNdx in range(blackKingsCoords.shape[0]):
+                blackKingCoords = [blackKingsCoords[blackKingNdx][1].item(), blackKingsCoords[blackKingNdx][2].item()] # Index 0 is the dummy 'depth' dimension
+                # Move NW (0)
+                moveVector = self.MoveVector(0)
+                firstCorner = [blackKingCoords[0] + moveVector[0], blackKingCoords[1] + moveVector[1]]
+                if firstCorner[0] >= 0 and firstCorner[0] < 8 and firstCorner[1] >= 0 and firstCorner[1] < 8:
+                    firstCornerOccupation = self.SquareOccupation(positionTensor, firstCorner[0], firstCorner[1])
+                    if firstCornerOccupation is None:  # Can move there
+                        legalMovesMask[0, 0, blackKingCoords[0], blackKingCoords[1]] = 1
+                    elif firstCornerOccupation.startswith('red'):  # first corner is occupied by a red piece
+                        secondCorner = [firstCorner[0] + moveVector[0], firstCorner[1] + moveVector[1]]
+                        secondCornerOccupation = self.SquareOccupation(positionTensor, secondCorner[0], secondCorner[1])
+                        if secondCornerOccupation is None:  # Can jump there
+                            legalMovesMask[0, 0, blackKingCoords[0], blackKingCoords[1]] = 1
+                # Move NE (1)
+                moveVector = self.MoveVector(1)
+                firstCorner = [blackKingCoords[0] + moveVector[0], blackKingCoords[1] + moveVector[1]]
+                if firstCorner[0] >= 0 and firstCorner[0] < 8 and firstCorner[1] >= 0 and firstCorner[1] < 8:
+                    firstCornerOccupation = self.SquareOccupation(positionTensor, firstCorner[0],
+                                                                  firstCorner[1])
+                    if firstCornerOccupation is None:  # Can move there
+                        legalMovesMask[1, 0, blackKingCoords[0], blackKingCoords[1]] = 1
+                    elif firstCornerOccupation.startswith('red'):  # first corner is occupied by a red piece
+                        secondCorner = [firstCorner[0] + moveVector[0], firstCorner[1] + moveVector[1]]
+                        secondCornerOccupation = self.SquareOccupation(positionTensor, secondCorner[0],
+                                                                       secondCorner[1])
+                        if secondCornerOccupation is None:  # Can jump there
+                            legalMovesMask[1, 0, blackKingCoords[0], blackKingCoords[1]] = 1
+                # Move SE (2)
+                moveVector = self.MoveVector(2)
+                firstCorner = [blackKingCoords[0] + moveVector[0], blackKingCoords[1] + moveVector[1]]
+                if firstCorner[0] >= 0 and firstCorner[0] < 8 and firstCorner[1] >= 0 and firstCorner[1] < 8:
+                    firstCornerOccupation = self.SquareOccupation(positionTensor, firstCorner[0],
+                                                                  firstCorner[1])
+                    if firstCornerOccupation is None:  # Can move there
+                        legalMovesMask[2, 0, blackKingCoords[0], blackKingCoords[1]] = 1
+                    elif firstCornerOccupation.startswith('red'):  # first corner is occupied by a red piece
+                        secondCorner = [firstCorner[0] + moveVector[0], firstCorner[1] + moveVector[1]]
+                        secondCornerOccupation = self.SquareOccupation(positionTensor, secondCorner[0],
+                                                                       secondCorner[1])
+                        if secondCornerOccupation is None:  # Can jump there
+                            legalMovesMask[2, 0, blackKingCoords[0], blackKingCoords[1]] = 1
+                # Move SW (3)
+                moveVector = self.MoveVector(3)
+                firstCorner = [blackKingCoords[0] + moveVector[0], blackKingCoords[1] + moveVector[1]]
+                if firstCorner[0] >= 0 and firstCorner[0] < 8 and firstCorner[1] >= 0 and firstCorner[1] < 8:
+                    firstCornerOccupation = self.SquareOccupation(positionTensor, firstCorner[0],
+                                                                  firstCorner[1])
+                    if firstCornerOccupation is None:  # Can move there
+                        legalMovesMask[3, 0, blackKingCoords[0], blackKingCoords[1]] = 1
+                    elif firstCornerOccupation.startswith('red'):  # first corner is occupied by a red piece
+                        secondCorner = [firstCorner[0] + moveVector[0], firstCorner[1] + moveVector[1]]
+                        secondCornerOccupation = self.SquareOccupation(positionTensor, secondCorner[0],
+                                                                       secondCorner[1])
+                        if secondCornerOccupation is None:  # Can jump there
+                            legalMovesMask[3, 0, blackKingCoords[0], blackKingCoords[1]] = 1
+
+            # Black checkers
+            blackCheckersCoords = torch.nonzero( positionTensor[self.pieceToPositionPlaneIndexDic['blackChecker']])
+            for blackCheckerNdx in range(blackCheckersCoords.shape[0]):
+                blackCheckerCoords = [blackCheckersCoords[blackCheckerNdx][1].item(), blackCheckersCoords[blackCheckerNdx][2].item()] # Index 0 is the dummy 'depth' dimension
+                #print ("blackCheckerCoords = {}".format(blackCheckerCoords))
+                # Move NW (0)
+                moveVector = self.MoveVector(0)
+                firstCorner = [blackCheckerCoords[0] + moveVector[0], blackCheckerCoords[1] + moveVector[1]]
+                if firstCorner[0] >= 0 and firstCorner[0] < 8 and firstCorner[1] >= 0 and firstCorner[1] < 8:
+                    firstCornerOccupation = self.SquareOccupation(positionTensor, firstCorner[0], firstCorner[1])
+                    if firstCornerOccupation is None: # Can move there
+                        legalMovesMask[0, 0, blackCheckerCoords[0], blackCheckerCoords[1]] = 1
+                    elif firstCornerOccupation.startswith('red'): # first corner is occupied by a red piece
+                        secondCorner = [firstCorner[0] + moveVector[0], firstCorner[1] + moveVector[1]]
+                        secondCornerOccupation = self.SquareOccupation(positionTensor, secondCorner[0], secondCorner[1])
+                        if secondCornerOccupation is None: # Can jump there
+                            legalMovesMask[0, 0, blackCheckerCoords[0], blackCheckerCoords[1]] = 1
+                # Move NE (1)
+                moveVector = self.MoveVector(1)
+                firstCorner = [blackCheckerCoords[0] + moveVector[0], blackCheckerCoords[1] + moveVector[1]]
+                if firstCorner[0] >= 0 and firstCorner[0] < 8 and firstCorner[1] >= 0 and firstCorner[1] < 8:
+                    firstCornerOccupation = self.SquareOccupation(positionTensor, firstCorner[0], firstCorner[1])
+                    if firstCornerOccupation is None:  # Can move there
+                        legalMovesMask[1, 0, blackCheckerCoords[0], blackCheckerCoords[1]] = 1
+                    elif firstCornerOccupation.startswith('red'):  # first corner is occupied by a red piece
+                        secondCorner = [firstCorner[0] + moveVector[0], firstCorner[1] + moveVector[1]]
+                        secondCornerOccupation = self.SquareOccupation(positionTensor, secondCorner[0], secondCorner[1])
+                        if secondCornerOccupation is None:  # Can jump there
+                            legalMovesMask[1, 0, blackCheckerCoords[0], blackCheckerCoords[1]] = 1
+
+        else: # Red
+            # Red kings
+            redKingsCoords = torch.nonzero(positionTensor[self.pieceToPositionPlaneIndexDic['redKing']])
+            for redKingNdx in range(redKingsCoords.shape[0]):
+                redKingCoords = [redKingsCoords[redKingNdx][1].item(), redKingsCoords[redKingNdx][2].item()] # Index 0 is the dummy 'depth' dimension
+                # Move NW (0)
+                moveVector = self.MoveVector(0)
+                firstCorner = [redKingCoords[0] + moveVector[0], redKingCoords[1] + moveVector[1]]
+                if firstCorner[0] >= 0 and firstCorner[0] < 8 and firstCorner[1] >= 0 and firstCorner[1] < 8:
+                    firstCornerOccupation = self.SquareOccupation(positionTensor, firstCorner[0], firstCorner[1])
+                    if firstCornerOccupation is None:  # Can move there
+                        legalMovesMask[0, 0, redKingCoords[0], redKingCoords[1]] = 1
+                    elif firstCornerOccupation.startswith('black'):  # first corner is occupied by a black piece
+                        secondCorner = [firstCorner[0] + moveVector[0], firstCorner[1] + moveVector[1]]
+                        secondCornerOccupation = self.SquareOccupation(positionTensor, secondCorner[0], secondCorner[1])
+                        if secondCornerOccupation is None:  # Can jump there
+                            legalMovesMask[0, 0, redKingCoords[0], redKingCoords[1]] = 1
+                # Move NE (1)
+                moveVector = self.MoveVector(1)
+                firstCorner = [redKingCoords[0] + moveVector[0], redKingCoords[1] + moveVector[1]]
+                if firstCorner[0] >= 0 and firstCorner[0] < 8 and firstCorner[1] >= 0 and firstCorner[1] < 8:
+                    firstCornerOccupation = self.SquareOccupation(positionTensor, firstCorner[0],
+                                                                  firstCorner[1])
+                    if firstCornerOccupation is None:  # Can move there
+                        legalMovesMask[1, 0, redKingCoords[0], redKingCoords[1]] = 1
+                    elif firstCornerOccupation.startswith('black'):  # first corner is occupied by a black piece
+                        secondCorner = [firstCorner[0] + moveVector[0], firstCorner[1] + moveVector[1]]
+                        secondCornerOccupation = self.SquareOccupation(positionTensor, secondCorner[0],
+                                                                       secondCorner[1])
+                        if secondCornerOccupation is None:  # Can jump there
+                            legalMovesMask[1, 0, redKingCoords[0], redKingCoords[1]] = 1
+                # Move SE (2)
+                moveVector = self.MoveVector(2)
+                firstCorner = [redKingCoords[0] + moveVector[0], redKingCoords[1] + moveVector[1]]
+                if firstCorner[0] >= 0 and firstCorner[0] < 8 and firstCorner[1] >= 0 and firstCorner[1] < 8:
+                    firstCornerOccupation = self.SquareOccupation(positionTensor, firstCorner[0],
+                                                                  firstCorner[1])
+                    if firstCornerOccupation is None:  # Can move there
+                        legalMovesMask[2, 0, redKingCoords[0], redKingCoords[1]] = 1
+                    elif firstCornerOccupation.startswith('black'):  # first corner is occupied by a black piece
+                        secondCorner = [firstCorner[0] + moveVector[0], firstCorner[1] + moveVector[1]]
+                        secondCornerOccupation = self.SquareOccupation(positionTensor, secondCorner[0],
+                                                                       secondCorner[1])
+                        if secondCornerOccupation is None:  # Can jump there
+                            legalMovesMask[2, 0, redKingCoords[0], redKingCoords[1]] = 1
+                # Move SW (3)
+                moveVector = self.MoveVector(3)
+                firstCorner = [redKingCoords[0] + moveVector[0], redKingCoords[1] + moveVector[1]]
+                if firstCorner[0] >= 0 and firstCorner[0] < 8 and firstCorner[1] >= 0 and firstCorner[1] < 8:
+                    firstCornerOccupation = self.SquareOccupation(positionTensor, firstCorner[0],
+                                                                  firstCorner[1])
+                    if firstCornerOccupation is None:  # Can move there
+                        legalMovesMask[3, 0, redKingCoords[0], redKingCoords[1]] = 1
+                    elif firstCornerOccupation.startswith('black'):  # first corner is occupied by a black piece
+                        secondCorner = [firstCorner[0] + moveVector[0], firstCorner[1] + moveVector[1]]
+                        secondCornerOccupation = self.SquareOccupation(positionTensor, secondCorner[0],
+                                                                       secondCorner[1])
+                        if secondCornerOccupation is None:  # Can jump there
+                            legalMovesMask[3, 0, redKingCoords[0], redKingCoords[1]] = 1
+
+            # Red checkers
+            redCheckersCoords = torch.nonzero( positionTensor[self.pieceToPositionPlaneIndexDic['redChecker']])
+            for redCheckerNdx in range(redCheckersCoords.shape[0]):
+                redCheckerCoords = [redCheckersCoords[redCheckerNdx][1].item(), redCheckersCoords[redCheckerNdx][2].item()] # Index 0 is the dummy 'depth' dimension
+                # Move SE (2)
+                moveVector = self.MoveVector(2)
+                firstCorner = [redCheckerCoords[0] + moveVector[0], redCheckerCoords[1] + moveVector[1]]
+                if firstCorner[0] >= 0 and firstCorner[0] < 8 and firstCorner[1] >= 0 and firstCorner[1] < 8:
+                    firstCornerOccupation = self.SquareOccupation(positionTensor, firstCorner[0], firstCorner[1])
+                    if firstCornerOccupation is None: # Can move there
+                        legalMovesMask[2, 0, redCheckerCoords[0], redCheckerCoords[1]] = 1
+                    elif firstCornerOccupation.startswith('black'): # first corner is occupied by a black piece
+                        secondCorner = [firstCorner[0] + moveVector[0], firstCorner[1] + moveVector[1]]
+                        secondCornerOccupation = self.SquareOccupation(positionTensor, secondCorner[0], secondCorner[1])
+                        if secondCornerOccupation is None: # Can jump there
+                            legalMovesMask[2, 0, redCheckerCoords[0], redCheckerCoords[1]] = 1
+                # Move SW (3)
+                moveVector = self.MoveVector(3)
+                firstCorner = [redCheckerCoords[0] + moveVector[0], redCheckerCoords[1] + moveVector[1]]
+                if firstCorner[0] >= 0 and firstCorner[0] < 8 and firstCorner[1] >= 0 and firstCorner[1] < 8:
+                    firstCornerOccupation = self.SquareOccupation(positionTensor, firstCorner[0], firstCorner[1])
+                    if firstCornerOccupation is None:  # Can move there
+                        legalMovesMask[3, 0, redCheckerCoords[0], redCheckerCoords[1]] = 1
+                    elif firstCornerOccupation.startswith('black'):  # first corner is occupied by a black piece
+                        secondCorner = [firstCorner[0] + moveVector[0], firstCorner[1] + moveVector[1]]
+                        secondCornerOccupation = self.SquareOccupation(positionTensor, secondCorner[0], secondCorner[1])
+                        if secondCornerOccupation is None:  # Can jump there
+                            legalMovesMask[3, 0, redCheckerCoords[0], redCheckerCoords[1]] = 1
+
+        return legalMovesMask
 
     def MoveWithString(self, currentPositionTensor, player, dropCoordinatesAsString):
         pass
@@ -177,19 +364,44 @@ class Authority(gameAuthority.GameAuthority):
                 return piece
         return None
 
+    def MoveVector(self, moveTypeIndex):
+        moveVector = [0, 0]
+        if moveTypeIndex == 0:  # NW
+            moveVector[0] -= 1
+            moveVector[1] -= 1
+        elif moveTypeIndex == 1:  # NE
+            moveVector[0] -= 1
+            moveVector[1] += 1
+        elif moveTypeIndex == 2:  # SE
+            moveVector[0] += 1
+            moveVector[1] += 1
+        else:  # 3 => SW
+            moveVector[0] += 1
+            moveVector[1] -= 1
+        return moveVector
 
 def main():
     print ("checkers.py main()")
     authority = Authority()
-    initialPosition = authority.InitialPosition()
     playersList = authority.PlayersList()
+    positionTensor = authority.InitialPosition()
 
-    authority.Display(initialPosition)
     moveTensor = torch.zeros(authority.MoveTensorShape())
-    moveTensor[3, 0, 1, 2] = 1
+    moveTensor[1, 0, 5, 0] = 1
+    positionTensor, winner = authority.Move(positionTensor, playersList[0], moveTensor)
 
-    positionTensor, winner = authority.Move(initialPosition, playersList[1], moveTensor)
+    moveTensor = torch.zeros(authority.MoveTensorShape())
+    moveTensor[3, 0, 2, 3] = 1
+    positionTensor, winner = authority.Move(positionTensor, playersList[1], moveTensor)
+
+    moveTensor = torch.zeros(authority.MoveTensorShape())
+    moveTensor[1, 0, 4, 1] = 1
+    positionTensor, winner = authority.Move(positionTensor, playersList[0], moveTensor)
+
     authority.Display(positionTensor)
+
+    legalMovesMask = authority.LegalMovesMask(positionTensor, playersList[1])
+    print ("legalMovesMask = \n{}".format(legalMovesMask))
 
 if __name__ == '__main__':
     main()
