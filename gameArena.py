@@ -8,6 +8,7 @@ import utilities
 import moveEvaluation.ConvolutionStack
 import tictactoe
 import connect4
+import checkers
 import moveEvaluation.netEnsemble
 
 parser = argparse.ArgumentParser()
@@ -120,6 +121,8 @@ def main():
         authority = tictactoe.Authority()
     elif args.game == 'connect4':
         authority = connect4.Authority()
+    elif args.game == 'checkers':
+        authority = checkers.Authority()
     else:
         raise NotImplementedError("main(): unknown game '{}'".format(args.game))
 
@@ -128,7 +131,7 @@ def main():
     moveTensorShape = authority.MoveTensorShape()
 
     #if type(ast.literal_eval(args.neuralNetwork)) is list: # Neural networks ensemble
-    if args.neuralNetwork.startswith('[') and args.neuralNetwork.endswith(']'): # List => neural networks ensemble
+    if args.neuralNetwork is not None and args.neuralNetwork.startswith('[') and args.neuralNetwork.endswith(']'): # List => neural networks ensemble
         committeeMembersList = []
         for neuralNetworkFilepath in ast.literal_eval(args.neuralNetwork):
             committeeMember = moveEvaluation.ConvolutionStack.Net()
@@ -181,8 +184,14 @@ def main():
     while winner is None:
         print ("numberOfPlayedMoves % 2 = {}; humanPlayerTurn = {}".format(numberOfPlayedMoves % 2, humanPlayerTurn))
         if numberOfPlayedMoves % 2 == humanPlayerTurn:
-            userInput = input ("Your move: ")
-            positionTensor, winner = authority.MoveWithString(positionTensor, player, userInput)
+            inputIsLegal = False
+            while not inputIsLegal:
+                try:
+                    userInput = input("Your move: ")
+                    positionTensor, winner = authority.MoveWithString(positionTensor, player, userInput)
+                    inputIsLegal = True
+                except:
+                    print ("Caught exception. Try again")
             numberOfPlayedMoves += 1
             player = playersList[numberOfPlayedMoves % 2]
             authority.Display(positionTensor)
