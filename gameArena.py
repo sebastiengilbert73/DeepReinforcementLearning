@@ -10,6 +10,8 @@ import tictactoe
 import connect4
 import checkers
 import moveEvaluation.netEnsemble
+import sys
+import time
 
 parser = argparse.ArgumentParser()
 parser.add_argument('game', help='The game you want to play')
@@ -187,11 +189,18 @@ def main():
             inputIsLegal = False
             while not inputIsLegal:
                 try:
-                    userInput = input("Your move: ")
-                    positionTensor, winner = authority.MoveWithString(positionTensor, player, userInput)
-                    inputIsLegal = True
-                except:
-                    print ("Caught exception. Try again")
+                    userInput = input("Your move ('?' to get the legal moves mask, 'positionTensor' to get the position tensor): ")
+                    if userInput == "?":
+                        legalMovesMask = authority.LegalMovesMask(positionTensor, player)
+                        print ("legalMovesMask = \n{}".format(legalMovesMask))
+                        inputIsLegal = False
+                    elif userInput == "positionTensor":
+                        print ("positionTensor = \n{}".format(positionTensor))
+                    else:
+                        positionTensor, winner = authority.MoveWithString(positionTensor, player, userInput)
+                        inputIsLegal = True
+                except ValueError as e:
+                    print ("Caught exception '{}'.\nTry again".format(e))
             numberOfPlayedMoves += 1
             player = playersList[numberOfPlayedMoves % 2]
             authority.Display(positionTensor)
