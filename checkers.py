@@ -134,7 +134,7 @@ class Authority(gameAuthority.GameAuthority):
 
 
         squareOccupation = self.SquareOccupation(currentPositionTensor, nonZeroCoords[0][2], nonZeroCoords[0][3])
-        print ("squareOccupation = {}".format(squareOccupation))
+        #print ("squareOccupation = {}".format(squareOccupation))
         if squareOccupation is None:
             raise ValueError("checkers.py Move(): Attempt to move from an empty square ({}, {})".format(nonZeroCoords[0][2], nonZeroCoords[0][3]))
         if squareOccupation.startswith('red') and player is self.playersList[0]:
@@ -165,7 +165,7 @@ class Authority(gameAuthority.GameAuthority):
         destinationSquare[0] += moveVector[0]
         destinationSquare[1] += moveVector[1]
 
-        print ("Move(): destinationSquare = {}".format(destinationSquare))
+        #print ("Move(): destinationSquare = {}".format(destinationSquare))
         if destinationSquare[0] < 0 or destinationSquare[0] > 7 or destinationSquare[1] < 0 or destinationSquare[1] > 7:
             raise ValueError("checkers.py Move(): Attempt to move out of the checkerboard at ({}, {})".format(destinationSquare[0], destinationSquare[1]))
 
@@ -205,7 +205,7 @@ class Authority(gameAuthority.GameAuthority):
         if squareOccupation is 'redChecker' and destinationSquare[0] == 7:
             newPositionTensor[self.pieceToPositionPlaneIndexDic['redChecker'], 0, destinationSquare[0], destinationSquare[1]] = 0
             newPositionTensor[self.pieceToPositionPlaneIndexDic['redKing'], 0, destinationSquare[0], destinationSquare[1]] = 1
-        print ("Move(): newPositionTensor.shape = {}".format(newPositionTensor.shape))
+        #print ("Move(): newPositionTensor.shape = {}".format(newPositionTensor.shape))
         return newPositionTensor, self.Winner(newPositionTensor, player)
 
     def Winner(self, positionTensor, lastPlayerWhoPlayed):
