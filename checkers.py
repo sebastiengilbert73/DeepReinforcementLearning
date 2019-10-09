@@ -98,8 +98,11 @@ class Authority(gameAuthority.GameAuthority):
                     swappedPosition[1, 0, 7 - row, 7 - column] = 1 # Put a black checker in the mirror square
                 elif originalPiece is 'redKing':
                     swappedPosition[0, 0, 7 - row, 7 - column] = 1 # Put a black king in the mirror square
-        swappedPosition[4] = positionTensor[5]
-        swappedPosition[5] = positionTensor[4]
+                if positionTensor[4, 0, row, column] == 1:
+                    swappedPosition[5, 0, 7 - row, 7 - column] = 1
+                if positionTensor[5, 0, row, column] == 1:
+                    swappedPosition[4, 0, 7 - row, 7 - column] = 1
+
         return swappedPosition
 
     def Move(self, currentPositionTensor, player, moveTensor):
@@ -117,15 +120,19 @@ class Authority(gameAuthority.GameAuthority):
             if torch.max(blackPossibleCaptures[:, 0, blackJumperLocation[0], blackJumperLocation[1]]).item() > 0:
                 return currentPositionTensor, None
 
-        # TODO: Check if the move is legal
+
 
         newPositionTensor = currentPositionTensor.clone()
+        newPositionTensor[self.pieceToPositionPlaneIndexDic['lastBlackJump']] = 0
+        newPositionTensor[self.pieceToPositionPlaneIndexDic['lastRedJump']] = 0
         nonZeroCoords = moveTensor.nonzero()
-        print ("Move(): nonZeroCoords = {}".format(nonZeroCoords))
-        print ("Move(): nonZeroCoords.shape = {}".format(nonZeroCoords.shape))
+        #print ("Move(): nonZeroCoords = {}".format(nonZeroCoords))
+        #print ("Move(): nonZeroCoords.shape = {}".format(nonZeroCoords.shape))
         if nonZeroCoords.shape[0] != 1:
             raise ValueError("checkers.py Move(): The number of non-zero values in the move tensor ({}) is not 1".format(nonZeroCoords.shape[0]))
-        print ("Move(): nonZeroCoords[0] = {}".format(nonZeroCoords[0]))
+        #print ("Move(): nonZeroCoords[0] = {}".format(nonZeroCoords[0]))
+
+
         squareOccupation = self.SquareOccupation(currentPositionTensor, nonZeroCoords[0][2], nonZeroCoords[0][3])
         print ("squareOccupation = {}".format(squareOccupation))
         if squareOccupation is None:
@@ -145,6 +152,11 @@ class Authority(gameAuthority.GameAuthority):
                 "checkers.py Move(): Attempt to move a red checker north in ({}, {})".format(nonZeroCoords[0][2],
                                                                                                nonZeroCoords[0][3]))
 
+        # Check if the move is legal
+        legalMovesMask = self.LegalMovesMask(currentPositionTensor, player)
+        if legalMovesMask[nonZeroCoords[0][0], nonZeroCoords[0][1], nonZeroCoords[0][2], nonZeroCoords[0][3]].item() == 0:
+            raise ValueError("checkers.py Move(): Attempt to do an illegal move: {}".format(nonZeroCoords[0]))
+
         destinationSquare = [nonZeroCoords[0][2].item(), nonZeroCoords[0][3].item()]
         moveTypeIndex = nonZeroCoords[0][0]
         movingPieceIndex = self.pieceToPositionPlaneIndexDic[squareOccupation]
@@ -161,10 +173,10 @@ class Authority(gameAuthority.GameAuthority):
         if destinationSquareOccupation is None:
             newPositionTensor[movingPieceIndex, 0, nonZeroCoords[0][2], nonZeroCoords[0][3]] = 0
             newPositionTensor[movingPieceIndex, 0, destinationSquare[0], destinationSquare[1]] = 1
-            if player is self.playersList[0]:
+            """if player is self.playersList[0]:
                 newPositionTensor[self.pieceToPositionPlaneIndexDic['lastBlackJump']] = 0
             else:
-                newPositionTensor[self.pieceToPositionPlaneIndexDic['lastRedJump']] = 0
+                newPositionTensor[self.pieceToPositionPlaneIndexDic['lastRedJump']] = 0"""
         else: # The destination square is occupied: it should be a jump
             if destinationSquareOccupation.startswith('black') and player is self.playersList[0]:
                 raise ValueError("checkers.py Move(): Black player attempts to move to a square occupied by a black piece in ({}, {})".format(destinationSquare[0], destinationSquare[1]))
@@ -221,11 +233,16 @@ class Authority(gameAuthority.GameAuthority):
                 return None
 
     def LastJumperLocation(self, positionTensor, planeIndex):
+        lastJumperLocations = []
         for row in range(8):
             for column in range(8):
                 if positionTensor[planeIndex, 0, row, column] > 0:
-                    return [row, column]
-        return None
+                    lastJumperLocations.append([row, column])
+        if len(lastJumperLocations) == 0:
+            return None
+        if len(lastJumperLocations) >= 2:
+            raise ValueError("LastJumperLocation(): len(lastJumperLocations) ({}) >= 2".format(len(lastJumperLocations)))
+        return lastJumperLocations[0] # The one and only 1 value
 
     def LegalMovesMask(self, positionTensor, player):
         if positionTensor.shape != self.positionTensorShape:
@@ -658,15 +675,45 @@ def main():
     print ("checkers.py main()")
     authority = Authority()
     playersList = authority.PlayersList()
-    positionTensor = authority.InitialPosition()
+    positionTensor = torch.zeros(authority.PositionTensorShape())
 
-    positionTensor, winner = authority.MoveWithString(positionTensor, playersList[0], '52-43')
-    positionTensor, winner = authority.MoveWithString(positionTensor, playersList[1], '25-36')
+    positionTensor[2, 0, 0, 1] = 1
+    positionTensor[2, 0, 0, 7] = 1
+    positionTensor[2, 0, 1, 0] = 1
+    positionTensor[2, 0, 2, 5] = 1
+    positionTensor[2, 0, 3, 4] = 1
+    """positionTensor[2, 0, 2, 1] = 1
+    positionTensor[2, 0, 2, 5] = 1
+    positionTensor[2, 0, 2, 7] = 1
+    positionTensor[2, 0, 3, 2] = 1"""
+
+    positionTensor[1, 0, 4, 1] = 1
+    positionTensor[1, 0, 5, 0] = 1
+    positionTensor[1, 0, 5, 6] = 1
+    positionTensor[1, 0, 6, 1] = 1
+    positionTensor[1, 0, 6, 5] = 1
+    positionTensor[1, 0, 7, 0] = 1
+    positionTensor[1, 0, 7, 2] = 1
+    positionTensor[1, 0, 7, 6] = 1
+
+    positionTensor[0, 0, 0, 5] = 1
+    #positionTensor[1, 0, 7, 6] = 1
 
     authority.Display(positionTensor)
 
-    legalMovesMask = authority.LegalMovesMask(positionTensor, playersList[1])
+    legalMovesMask = authority.LegalMovesMask(positionTensor, playersList[0])
     print ("legalMovesMask = \n{}".format(legalMovesMask))
+
+    positionTensor, winner = authority.MoveWithString(positionTensor, playersList[0], '05-14')
+    print ("After move:")
+    authority.Display(positionTensor)
+    print ("positionTensor = \n{}".format(positionTensor))
+    """swappedPosition = authority.SwapPositions(positionTensor, playersList[0], playersList[1])
+    print ("swappedPosition = \n{}".format(swappedPosition))"""
+    """positionTensor, winner = authority.MoveWithString(positionTensor, playersList[1], '14-32')
+    authority.Display(positionTensor)
+    """
+
 
 if __name__ == '__main__':
     main()
