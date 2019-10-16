@@ -268,7 +268,8 @@ class Authority(gameAuthority.GameAuthority):
                     print ('. ', end='')
             print('\n')
 
-
+    def RaiseAnErrorIfNoLegalMove(self):
+        return True
 
 def main():
     print ("connect4.py main()")

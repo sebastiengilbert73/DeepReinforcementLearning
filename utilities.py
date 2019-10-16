@@ -51,7 +51,9 @@ def ChooseARandomMove(positionTensor, player, gameAuthority):
     legalMovesMask = gameAuthority.LegalMovesMask(positionTensor, player)
     numberOfLegalMoves = torch.nonzero(legalMovesMask).size(0)
     if numberOfLegalMoves == 0:
-        raise ValueError("utilities.ChooseARandomMove(): The number of legal moves is zero")
+        if gameAuthority.RaiseAnErrorIfNoLegalMove():
+            raise ValueError("utilities.ChooseARandomMove(): The number of legal moves is zero. player = {}; positionTensor = \n{}".format(player, positionTensor))
+        return None
     randomNbr = random.randint(1, numberOfLegalMoves)
     probabilitiesTensorShape = legalMovesMask.shape
     runningSum = 0

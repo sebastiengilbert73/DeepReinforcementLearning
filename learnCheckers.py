@@ -48,7 +48,7 @@ def main():
     else:
         neuralNetwork = moveEvaluation.ConvolutionStack.Net(
             positionTensorShape,
-            [(3, 32), (3, 32), (3, 32)],
+            [(5, 32), (5, 32), (5, 32)],
             moveTensorShape
         )
 
@@ -77,11 +77,11 @@ def main():
             args.chooseHighestProbabilityIfAtLeast,
             True,
             softMaxTemperature=0.1,
-            numberOfGames=100,
+            numberOfGames=25,
             moveChoiceMode='SemiExhaustiveMiniMax',
             numberOfGamesForMoveEvaluation=0,  # ignored by SoftMax
-            depthOfExhaustiveSearch=2,
-            numberOfTopMovesToDevelop=3
+            depthOfExhaustiveSearch=1,
+            numberOfTopMovesToDevelop=7
         )
     print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
         averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
@@ -92,6 +92,141 @@ def main():
 
     softMaxTemperatureForSelfPlayEvaluation = args.softMaxTemperatureForSelfPlayEvaluation
     losingGamesAgainstRandomPlayerPositionsList = []
+
+    for epoch in range(1, args.numberOfEpochs + 1):
+        print ("epoch {}".format(epoch))
+        # Set the neural network to training mode
+        neuralNetwork.train()
+
+        # Generate positions
+        minimumNumberOfMovesForInitialPositions = MinimumNumberOfMovesForInitialPositions(epoch)
+        maximumNumberOfMovesForInitialPositions = args.maximumNumberOfMovesForInitialPositions
+        print ("Generating positions...")
+        if epoch %3 == 1:
+            positionStatisticsList = generateMoveStatistics.GenerateMoveStatisticsMultiprocessing(
+                playerList,
+                authority,
+                neuralNetwork,
+                args.proportionOfRandomInitialPositions,
+                (minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions),
+                16, #args.numberOfInitialPositions,
+                args.numberOfGamesForEvaluation,
+                softMaxTemperatureForSelfPlayEvaluation,
+                args.epsilon,
+                args.depthOfExhaustiveSearch,
+                args.chooseHighestProbabilityIfAtLeast,
+                [], #losingGamesAgainstRandomPlayerPositionsList,
+                args.numberOfProcesses
+            )
+        else:
+            positionStatisticsList = generateMoveStatistics.GenerateMoveStatisticsWithMiniMax(
+                playerList,
+                authority,
+                neuralNetwork,
+                (minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions),
+                args.numberOfInitialPositions,
+                args.depthOfExhaustiveSearch,
+                losingGamesAgainstRandomPlayerPositionsList
+            )
+
+        actionValuesLossSum = 0.0
+        minibatchIndicesList = utilities.MinibatchIndices(len(positionStatisticsList), args.minibatchSize)
+
+        for minibatchNdx in range(len(minibatchIndicesList)):
+            print('.', end='', flush=True)
+            minibatchPositions = []
+            minibatchTargetActionValues = []
+            minibatchLegalMovesMasks = []
+            for index in minibatchIndicesList[minibatchNdx]:
+                minibatchPositions.append(positionStatisticsList[index][0])
+                averageValue = positionStatisticsList[index][1] #- \
+                                           #args.numberOfStandardDeviationsBelowAverageForValueEstimate * positionStatisticsList[index][2]
+                legalMovesMask = positionStatisticsList[index][3]
+                averageValue = averageValue * legalMovesMask.float()
+                minibatchTargetActionValues.append(averageValue)
+                minibatchLegalMovesMasks.append(legalMovesMask)
+            minibatchPositionsTensor = utilities.MinibatchTensor(minibatchPositions)
+            minibatchTargetActionValuesTensor = utilities.MinibatchTensor(minibatchTargetActionValues)
+
+            optimizer.zero_grad()
+
+            # Forward pass
+            outputActionValuesTensor = neuralNetwork(minibatchPositionsTensor)
+            # Mask the output action values with the legal moves mask
+            for maskNdx in range(len(minibatchLegalMovesMasks)):
+                outputActionValues = outputActionValuesTensor[maskNdx].clone()
+                legalMovesMask = minibatchLegalMovesMasks[maskNdx]
+                maskedOutputActionValues = outputActionValues * legalMovesMask.float()
+                outputActionValuesTensor[maskNdx] = maskedOutputActionValues
+
+            # Calculate the error and backpropagate
+            actionValuesLoss = loss(outputActionValuesTensor, minibatchTargetActionValuesTensor)
+
+            try:
+                actionValuesLoss.backward()
+                actionValuesLossSum += actionValuesLoss.item()
+
+                # Move in the gradient descent direction
+                optimizer.step()
+            except Exception as exc:
+                print ("Caught excetion: {}".format(exc))
+                print('X', end='', flush=True)
+
+        averageActionValuesTrainingLoss = actionValuesLossSum / len(minibatchIndicesList)
+        print("\nEpoch {}: averageActionValuesTrainingLoss = {}".format(epoch, averageActionValuesTrainingLoss))
+
+        # Update the learning rate
+        learningRate = learningRate * args.learningRateExponentialDecay
+        utilities.adjust_lr(optimizer, learningRate)
+
+        # Save the neural network
+        #modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_connect4_" + str(epoch) + '.pth')
+        #torch.save(neuralNetwork.state_dict(), modelParametersFilename)
+        neuralNetwork.Save(args.outputDirectory, 'checkers_' + str(epoch))
+        if epoch % 200 == -1:
+            moveChoiceMode = 'ExpectedMoveValuesThroughSelfPlay'
+            numberOfGames = 100
+            depthOfExhaustiveSearch = 2
+            monitoringSoftMaxTemperature = 0.1
+        else:
+            moveChoiceMode = 'SemiExhaustiveMiniMax'
+            numberOfGames = 25
+            depthOfExhaustiveSearch = 1
+            numberOfTopMovesToDevelop = 7
+        (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
+            expectedMoveValues.AverageRewardAgainstARandomPlayerKeepLosingGames(
+                playerList,
+                authority,
+                neuralNetwork,
+                args.chooseHighestProbabilityIfAtLeast,
+                True,
+                softMaxTemperature=softMaxTemperatureForSelfPlayEvaluation,
+                numberOfGames=numberOfGames,
+                moveChoiceMode=moveChoiceMode,
+                numberOfGamesForMoveEvaluation=41,  # ignored by SoftMax
+                depthOfExhaustiveSearch=depthOfExhaustiveSearch,
+                numberOfTopMovesToDevelop=numberOfTopMovesToDevelop
+            )
+        print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
+            averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
+
+        # Collect the positions from losing games
+        losingGamesAgainstRandomPlayerPositionsList = []
+        for (losingGamePositionsList, firstPlayer) in losingGamePositionsListList:
+            for positionNdx in range(len(losingGamePositionsList) - 1):
+                if firstPlayer == playerList[0]:  # Keep even positions
+                    if positionNdx % 2 == 0:
+                        losingGamesAgainstRandomPlayerPositionsList.append(losingGamePositionsList[positionNdx])
+                else:  # fistPlayer == playerList[1] -> Keep odd positions
+                    if positionNdx % 2 == 1:
+                        losingGamesAgainstRandomPlayerPositionsList.append(losingGamePositionsList[positionNdx])
+
+        epochLossFile.write(str(epoch) + ',' + str(averageActionValuesTrainingLoss) + ',' + str(
+            averageRewardAgainstRandomPlayer) + ',' + str(winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
+
+        """initialPosition = authority.InitialPosition()
+        initialPositionOutput = neuralNetwork(initialPosition.unsqueeze(0))
+        print("main(): initialPositionOutput = \n{}".format(initialPositionOutput))"""
 
 if __name__ == '__main__':
     main()

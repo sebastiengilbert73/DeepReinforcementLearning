@@ -47,3 +47,6 @@ class GameAuthority(abc.ABC):
     def Display(self, positionTensor):
         pass
 
+    @abc.abstractmethod
+    def RaiseAnErrorIfNoLegalMove(self):
+        pass

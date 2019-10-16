@@ -194,6 +194,9 @@ class Authority(gameAuthority.GameAuthority):
     def PlayersList(self):
         return self.playersList
 
+    def RaiseAnErrorIfNoLegalMove(self):
+        return True
+
 
 def main():
     import multiprocessing

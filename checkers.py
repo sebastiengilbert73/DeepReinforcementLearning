@@ -471,6 +471,9 @@ class Authority(gameAuthority.GameAuthority):
         moveTensor[moveTypeIndex, 0, startSquare[0], startSquare[1]] = 1
         return self.Move(currentPositionTensor, player, moveTensor)
 
+    def RaiseAnErrorIfNoLegalMove(self):
+        return False
+
     def SquareOccupation(self, positionTensor, row, column):
         if row < 0 or row > 7 or column < 0 or column > 7:
             return None
@@ -673,46 +676,39 @@ class Authority(gameAuthority.GameAuthority):
 
 def main():
     print ("checkers.py main()")
+    import utilities
+
     authority = Authority()
     playersList = authority.PlayersList()
     positionTensor = torch.zeros(authority.PositionTensorShape())
 
-    positionTensor[2, 0, 0, 1] = 1
-    positionTensor[2, 0, 0, 7] = 1
-    positionTensor[2, 0, 1, 0] = 1
-    positionTensor[2, 0, 2, 5] = 1
-    positionTensor[2, 0, 3, 4] = 1
-    """positionTensor[2, 0, 2, 1] = 1
-    positionTensor[2, 0, 2, 5] = 1
-    positionTensor[2, 0, 2, 7] = 1
-    positionTensor[2, 0, 3, 2] = 1"""
+    # Black kings: channel = 0
+    positionTensor[0, 0, 5, 4] = 1
+    # Black checkers: channel = 1
 
-    positionTensor[1, 0, 4, 1] = 1
-    positionTensor[1, 0, 5, 0] = 1
-    positionTensor[1, 0, 5, 6] = 1
-    positionTensor[1, 0, 6, 1] = 1
-    positionTensor[1, 0, 6, 5] = 1
-    positionTensor[1, 0, 7, 0] = 1
-    positionTensor[1, 0, 7, 2] = 1
-    positionTensor[1, 0, 7, 6] = 1
+    # Red checkers: channel = 2
+    positionTensor[2, 0, 6, 1] = 1
+    positionTensor[2, 0, 6, 3] = 1
 
-    positionTensor[0, 0, 0, 5] = 1
-    #positionTensor[1, 0, 7, 6] = 1
+    # Red kings: channel = 3
+    positionTensor[3, 0, 7, 0] = 1
 
     authority.Display(positionTensor)
 
     legalMovesMask = authority.LegalMovesMask(positionTensor, playersList[0])
     print ("legalMovesMask = \n{}".format(legalMovesMask))
 
-    positionTensor, winner = authority.MoveWithString(positionTensor, playersList[0], '05-14')
+    positionTensor, winner = authority.MoveWithString(positionTensor, playersList[0], '54-72')
     print ("After move:")
     authority.Display(positionTensor)
     print ("positionTensor = \n{}".format(positionTensor))
-    """swappedPosition = authority.SwapPositions(positionTensor, playersList[0], playersList[1])
-    print ("swappedPosition = \n{}".format(swappedPosition))"""
-    """positionTensor, winner = authority.MoveWithString(positionTensor, playersList[1], '14-32')
+
+    impossibleMove = utilities.ChooseARandomMove(positionTensor, playersList[1], authority)
+    print ("impossibleMove = {}".format(impossibleMove))
+    """positionTensor, winner = authority.MoveWithString(positionTensor, playersList[1], '54-72')
+    print ("After move:")
     authority.Display(positionTensor)
-    """
+    print ("positionTensor = \n{}".format(positionTensor))"""
 
 
 if __name__ == '__main__':

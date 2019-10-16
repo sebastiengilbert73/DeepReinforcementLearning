@@ -44,9 +44,12 @@ def SimulateGameAndGetReward(playerList,
                 preApplySoftMax,
                 softMaxTemperature,
                 epsilon=epsilon
-            ).detach()
+            )
+        if chosenMoveTensor is not None:
+            chosenMoveTensor = chosenMoveTensor.detach()
         #print ("SimulateGameAndGetReward(): chosenMoveTensor =\n{}".format(chosenMoveTensor))
-        positionTensor, winner = authority.Move(positionTensor, playerList[0], chosenMoveTensor)
+        if chosenMoveTensor is not None:
+            positionTensor, winner = authority.Move(positionTensor, playerList[0], chosenMoveTensor)
         #winner = authority.MoveInPlace(positionTensor, playerList[0], chosenMoveTensor)
         if winner == playerList[0] and player == playerList[1]: # All moves are from the point of view of player0, hence he will always 'win'
             winner = playerList[1]
@@ -650,16 +653,21 @@ def AverageRewardAgainstARandomPlayerKeepLosingGames(
                     highestValue = -1E9
                     highestValueCoords = (0, 0, 0, 0)
                     nonZeroCoordsTensor = torch.nonzero(legalMovesMask)
-                    for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
-                        nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
-                        if moveValuesTensor[
-                            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] > highestValue:
-                            highestValue = moveValuesTensor[
-                                nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
-                            highestValueCoords = nonZeroCoords
-                    chosenMoveTensor[
-                        highestValueCoords[0], highestValueCoords[1], highestValueCoords[2], highestValueCoords[
-                            3]] = 1.0
+                    if nonZeroCoordsTensor.size(0) == 0:
+                        if authority.RaiseAnErrorIfNoLegalMove():
+                            raise ValueError("AverageRewardAgainstARandomPlayerKeepLosingGames(): There is no legal move. positionTensor = \n{}".format(positionTensor))
+                        chosenMoveTensor = None
+                    else:
+                        for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
+                            nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+                            if moveValuesTensor[
+                                nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] > highestValue:
+                                highestValue = moveValuesTensor[
+                                    nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
+                                highestValueCoords = nonZeroCoords
+                        chosenMoveTensor[
+                            highestValueCoords[0], highestValueCoords[1], highestValueCoords[2], highestValueCoords[
+                                3]] = 1.0
                 elif moveChoiceMode == 'SemiExhaustiveExpectedMoveValues':
                     moveValuesTensor, standardDeviationTensor, legalMovesMask = \
                     SemiExhaustiveExpectedMoveValues(
@@ -679,16 +687,21 @@ def AverageRewardAgainstARandomPlayerKeepLosingGames(
                     highestValue = -1E9
                     highestValueCoords = (0, 0, 0, 0)
                     nonZeroCoordsTensor = torch.nonzero(legalMovesMask)
-                    for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
-                        nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
-                        if moveValuesTensor[
-                            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] > highestValue:
-                            highestValue = moveValuesTensor[
-                                nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
-                            highestValueCoords = nonZeroCoords
-                    chosenMoveTensor[
-                        highestValueCoords[0], highestValueCoords[1], highestValueCoords[2], highestValueCoords[
-                            3]] = 1.0
+                    if nonZeroCoordsTensor.size(0) == 0:
+                        if authority.RaiseAnErrorIfNoLegalMove():
+                            raise ValueError("AverageRewardAgainstARandomPlayerKeepLosingGames(): There is no legal move. positionTensor = \n{}".format(positionTensor))
+                        chosenMoveTensor = None
+                    else:
+                        for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
+                            nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+                            if moveValuesTensor[
+                                nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] > highestValue:
+                                highestValue = moveValuesTensor[
+                                    nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
+                                highestValueCoords = nonZeroCoords
+                        chosenMoveTensor[
+                            highestValueCoords[0], highestValueCoords[1], highestValueCoords[2], highestValueCoords[
+                                3]] = 1.0
                 elif moveChoiceMode == 'SemiExhaustiveMiniMax':
                     moveValuesTensor, standardDeviationTensor, legalMovesMask = \
                     SemiExhaustiveMiniMax(
@@ -707,21 +720,27 @@ def AverageRewardAgainstARandomPlayerKeepLosingGames(
                     highestValue = -1E9
                     highestValueCoords = (0, 0, 0, 0)
                     nonZeroCoordsTensor = torch.nonzero(legalMovesMask)
-                    for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
-                        nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
-                        if moveValuesTensor[
-                            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] > highestValue:
-                            highestValue = moveValuesTensor[
-                                nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
-                            highestValueCoords = nonZeroCoords
-                    chosenMoveTensor[
-                        highestValueCoords[0], highestValueCoords[1], highestValueCoords[2], highestValueCoords[
-                            3]] = 1.0
+                    if nonZeroCoordsTensor.size(0) == 0:
+                        if authority.RaiseAnErrorIfNoLegalMove():
+                            raise ValueError("AverageRewardAgainstARandomPlayerKeepLosingGames(): There is no legal move. positionTensor = \n{}".format(positionTensor))
+                        chosenMoveTensor = None
+                    else:
+                        for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
+                            nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+                            if moveValuesTensor[
+                                nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] > highestValue:
+                                highestValue = moveValuesTensor[
+                                    nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]]
+                                highestValueCoords = nonZeroCoords
+                        chosenMoveTensor[
+                            highestValueCoords[0], highestValueCoords[1], highestValueCoords[2], highestValueCoords[
+                                3]] = 1.0
                 else:
                     raise NotImplementedError("expectedMoveValues.AverageRewardAgainstARandomPlayerKeepLosingGames(): Unknown move choice mode '{}'".format(moveChoiceMode))
             # print ("chosenMoveTensor =\n{}".format(chosenMoveTensor))
-            positionTensor, winner = authority.Move(positionTensor, player, chosenMoveTensor)
-            gamePositionsList.append(positionTensor)
+            if chosenMoveTensor is not None:
+                positionTensor, winner = authority.Move(positionTensor, player, chosenMoveTensor)
+                gamePositionsList.append(positionTensor)
             #authority.Display(positionTensor)
             #print ("policy.AverageRewardAgainstARandomPlayer() winner = {}".format(winner))
             moveNdx += 1
