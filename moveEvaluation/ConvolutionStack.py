@@ -93,6 +93,8 @@ class Net(torch.nn.Module):
 
         # Else: choose according to probabilities
         legalMovesMask = gameAuthority.LegalMovesMask(positionTensor, player)
+        if torch.nonzero(legalMovesMask).size(0) == 0:
+            return None
 
         normalizedActionValuesTensor = utilities.NormalizeProbabilities(actionValuesTensor,
                                                                legalMovesMask,
