@@ -106,6 +106,9 @@ class Authority(gameAuthority.GameAuthority):
         return swappedPosition
 
     def Move(self, currentPositionTensor, player, moveTensor):
+        if moveTensor is None:
+            #print ("Move(): Caught None moveTensor!\ncurrentPositionTensor = \n{}".format(currentPositionTensor))
+            return currentPositionTensor, None
         if moveTensor.shape != self.moveTensorShape:
             raise ValueError("Authority.Move(): moveTensor.shape ({}) is not {}".format(moveTensor.shape, self.moveTensorShape))
         # Check if the opponent can take a piece: if so, do nothing (the equivalent of giving back the turn for multiple jumps)

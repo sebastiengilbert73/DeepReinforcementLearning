@@ -26,9 +26,10 @@ def GenerateMoveStatistics(playerList,
                             additionalStartingPositionsList=[],
                             resultsQueue = None, # For multiprocessing
                             event=None, # For multiprocessing
-                            processNdx=None # For multiprocessing
+                            processNdx=None, # For multiprocessing
+                            maximumNumberOfMoves=100
                             ):
-    print("generateMoveStatistics.GenerateMoveStatistics(): len(additionalStartingPositionsList) = {}".format(len(additionalStartingPositionsList)))
+    #print("generateMoveStatistics.GenerateMoveStatistics(): len(additionalStartingPositionsList) = {}".format(len(additionalStartingPositionsList)))
     # Create initial positions
     initialPositions = additionalStartingPositionsList
     selfPlayInitialPositions = numberOfInitialPositions#int( (1 - proportionOfRandomInitialPositions) * numberOfInitialPositions)
@@ -92,7 +93,8 @@ def GenerateMoveStatistics(playerList,
             numberOfGamesForEvaluation,
             softMaxTemperatureForSelfPlayEvaluation,
             epsilon,
-            depthOfExhaustiveSearch
+            depthOfExhaustiveSearch,
+            maximumNumberOfMoves
         )
         positionMoveStatistics.append((initialPosition, averageValuesTensor,
                                       standardDeviationTensor, legalMovesNMask))
@@ -239,3 +241,109 @@ def GenerateMoveStatisticsWithMiniMax(
                                       standardDeviationTensor, legalMovesNMask))
 
     return positionMoveStatistics
+
+def GenerateEndGameStatistics(
+        playerList,
+        authority,
+        neuralNetwork,
+        keepNumberOfMovesBeforeEndGame,
+        numberOfPositions,
+        numberOfGamesForEvaluation,
+        softMaxTemperatureForSelfPlayEvaluation,
+        epsilon,
+        maximumNumberOfMovesForFullGameSimulation,
+        maximumNumberOfMovesForEndGameSimulation,
+        additionalStartingPositionsList=[],
+        resultsQueue = None, # For multiprocessing
+        event=None, # For multiprocessing
+        processNdx=None # For multiprocessing
+        ):
+    positionMovesStatistics = []
+
+    #for positionNdx in range(numberOfPositions):
+    while len(positionMovesStatistics) < numberOfPositions:
+        positionsList, winner = expectedMoveValues.SimulateAGame(
+            playerList,
+            authority,
+            neuralNetwork,
+            softMaxTemperatureForSelfPlayEvaluation,
+            epsilon,
+            maximumNumberOfMovesForFullGameSimulation
+        )
+        if len(positionsList) < maximumNumberOfMovesForFullGameSimulation:
+            selectedNdx = len(positionsList) - 1 - keepNumberOfMovesBeforeEndGame
+            if selectedNdx %2 == 1: # Select a position where it's player0's turn
+                selectedNdx -= 1
+            selectedNdx = max(selectedNdx, 0)
+            #print ("GenerateEndGameStatistics(): selectedNdx = {}".format(selectedNdx))
+            selectedPosition = positionsList[selectedNdx]
+            #print ("GenerateEndGameStatistics(): selectedPosition = \n")
+            #authority.Display(selectedPosition)
+
+            positionMoveStatistics = GenerateMoveStatistics(playerList,
+                                   authority,
+                                   neuralNetwork,
+                                   proportionOfRandomInitialPositions=0,
+                                   numberOfMovesForInitialPositionsMinMax=(0, 0),
+                                   numberOfInitialPositions=0,
+                                   numberOfGamesForEvaluation=numberOfGamesForEvaluation,
+                                   softMaxTemperatureForSelfPlayEvaluation=softMaxTemperatureForSelfPlayEvaluation,
+                                   epsilon=epsilon,
+                                   depthOfExhaustiveSearch=1,
+                                   chooseHighestProbabilityIfAtLeast=1,
+                                   additionalStartingPositionsList=[selectedPosition],
+                                   #resultsQueue=None,  # For multiprocessing
+                                   #event=None,  # For multiprocessing
+                                   #processNdx=None  # For multiprocessing
+                                   maximumNumberOfMoves=maximumNumberOfMovesForEndGameSimulation
+                                   )
+            positionMovesStatistics.append(positionMoveStatistics[0])
+            #print ("GenerateEndGameStatistics(): len(positionMoveStatistics[0]) = {}; len(positionMovesStatistics) = {}".format(len(positionMoveStatistics[0]), len(positionMovesStatistics)))
+            #print ("GenerateEndGameStatistics(): positionMoveStatistics = \n{}".format(positionMoveStatistics))
+
+
+
+
+
+    #print ("GenerateEndGameStatistics(): positionsList = \n{}".format(positionsList))
+    #print ("GenerateEndGameStatistics(): len(positionsList) = \n{}".format(len(positionsList)))
+
+    return positionMovesStatistics
+
+
+
+
+def main():
+    import checkers
+    import moveEvaluation.ConvolutionStack
+    print ("generateMoveStatistics.py main()")
+
+    authority = checkers.Authority()
+    playerList = authority.PlayersList()
+    neuralNetwork = moveEvaluation.ConvolutionStack.Net()
+    neuralNetwork.Load("/home/sebastien/projects/DeepReinforcementLearning/outputs/Net_(6,1,8,8)_[(5,32),(5,32),(5,32)]_(4,1,8,8)_checkers_48.pth")
+    keepNumberOfMovesBeforeEndGame = 3
+    numberOfPositions = 3
+    numberOfGamesForEvaluation = 5
+    softMaxTemperatureForSelfPlayEvaluation = 0.1
+    epsilon = 0.1
+    maximumNumberOfMovesForFullGameSimulation = 100
+    maximumNumberOfMovesForEndGameSimulation = 10
+
+    positionMovesStatistics = GenerateEndGameStatistics(
+        playerList,
+        authority,
+        neuralNetwork,
+        keepNumberOfMovesBeforeEndGame,
+        numberOfPositions,
+        numberOfGamesForEvaluation,
+        softMaxTemperatureForSelfPlayEvaluation,
+        epsilon,
+        maximumNumberOfMovesForFullGameSimulation,
+        maximumNumberOfMovesForEndGameSimulation
+    )
+
+    print ("positionMovesStatistics = \n{}".format(positionMovesStatistics))
+
+if __name__ == '__main__':
+    main()

@@ -7,6 +7,7 @@ import expectedMoveValues
 import generateMoveStatistics
 import checkers
 import moveEvaluation.ConvolutionStack
+import logging
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--disable-cuda', action='store_true', help='Disable CUDA')
@@ -25,17 +26,20 @@ parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The depth of ex
 parser.add_argument('--chooseHighestProbabilityIfAtLeast', type=float, help='The threshold probability to trigger automatic choice of the highest probability, instead of choosing with roulette. Default: 1.0', default=1.0)
 parser.add_argument('--startWithNeuralNetwork', help='The starting neural network weights. Default: None', default=None)
 parser.add_argument('--numberOfProcesses', help='The number of processes. Default: 4', type=int, default=4)
+
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
 
 
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(message)s')
+
 def MinimumNumberOfMovesForInitialPositions(epoch):
-    minimumNumberOfMoves = args.maximumNumberOfMovesForInitialPositions - 20 - int(epoch/1)
+    minimumNumberOfMoves = args.maximumNumberOfMovesForInitialPositions - 40 - int(epoch/1)
     return max(minimumNumberOfMoves, 0)
 
 
 def main():
-    print ("learnCheckers.py main()")
+    logging.info ("learnCheckers.py main()")
 
     authority = checkers.Authority()
     positionTensorShape = authority.PositionTensorShape()
@@ -77,13 +81,13 @@ def main():
             args.chooseHighestProbabilityIfAtLeast,
             True,
             softMaxTemperature=0.1,
-            numberOfGames=25,
+            numberOfGames=11,
             moveChoiceMode='SemiExhaustiveMiniMax',
             numberOfGamesForMoveEvaluation=0,  # ignored by SoftMax
             depthOfExhaustiveSearch=1,
             numberOfTopMovesToDevelop=7
         )
-    print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
+    logging.info ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
         averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
 
     epochLossFile.write(
@@ -94,15 +98,15 @@ def main():
     losingGamesAgainstRandomPlayerPositionsList = []
 
     for epoch in range(1, args.numberOfEpochs + 1):
-        print ("epoch {}".format(epoch))
+        logging.info ("Epoch {}".format(epoch))
         # Set the neural network to training mode
         neuralNetwork.train()
 
         # Generate positions
         minimumNumberOfMovesForInitialPositions = MinimumNumberOfMovesForInitialPositions(epoch)
         maximumNumberOfMovesForInitialPositions = args.maximumNumberOfMovesForInitialPositions
-        print ("Generating positions...")
-        if epoch %3 == 1:
+        logging.info ("Generating positions...")
+        if epoch %3 == -1:
             positionStatisticsList = generateMoveStatistics.GenerateMoveStatisticsMultiprocessing(
                 playerList,
                 authority,
@@ -126,18 +130,42 @@ def main():
                 (minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions),
                 args.numberOfInitialPositions,
                 args.depthOfExhaustiveSearch,
-                losingGamesAgainstRandomPlayerPositionsList
+                [],#losingGamesAgainstRandomPlayerPositionsList
             )
+        # Add end games
+        logging.info("Generating end games...")
+        keepNumberOfMovesBeforeEndGame = 3
+        numberOfEndGamePositions = 32
+        numberOfGamesForEndGameEvaluation = 15
+        maximumNumberOfMovesForFullGameSimulation = args.maximumNumberOfMovesForInitialPositions
+        maximumNumberOfMovesForEndGameSimulation = 10
+        endGamePositionsStatisticsList = generateMoveStatistics.GenerateEndGameStatistics(
+            playerList,
+            authority,
+            neuralNetwork,
+            keepNumberOfMovesBeforeEndGame,
+            numberOfEndGamePositions,
+            numberOfGamesForEndGameEvaluation,
+            softMaxTemperatureForSelfPlayEvaluation,
+            args.epsilon,
+            maximumNumberOfMovesForFullGameSimulation,
+            maximumNumberOfMovesForEndGameSimulation,
+        )
+        #logging.debug("len(positionStatisticsList) = {}; len(endGamePositionsStatisticsList) = {}".format(len(positionStatisticsList), len(endGamePositionsStatisticsList)))
+        positionStatisticsList += endGamePositionsStatisticsList
+        #logging.debug("After +=: len(positionStatisticsList) = {}".format(len(positionStatisticsList)))
 
         actionValuesLossSum = 0.0
         minibatchIndicesList = utilities.MinibatchIndices(len(positionStatisticsList), args.minibatchSize)
 
+        logging.info("Going through the minibatch")
         for minibatchNdx in range(len(minibatchIndicesList)):
             print('.', end='', flush=True)
             minibatchPositions = []
             minibatchTargetActionValues = []
             minibatchLegalMovesMasks = []
             for index in minibatchIndicesList[minibatchNdx]:
+                #logging.debug("len(positionStatisticsList[{}]) = {}".format(index, len(positionStatisticsList[index])))
                 minibatchPositions.append(positionStatisticsList[index][0])
                 averageValue = positionStatisticsList[index][1] #- \
                                            #args.numberOfStandardDeviationsBelowAverageForValueEstimate * positionStatisticsList[index][2]
@@ -169,11 +197,14 @@ def main():
                 # Move in the gradient descent direction
                 optimizer.step()
             except Exception as exc:
-                print ("Caught excetion: {}".format(exc))
+                msg = "Caught excetion: {}".format(exc)
+                print (msg)
+                logging.error(msg)
                 print('X', end='', flush=True)
 
         averageActionValuesTrainingLoss = actionValuesLossSum / len(minibatchIndicesList)
-        print("\nEpoch {}: averageActionValuesTrainingLoss = {}".format(epoch, averageActionValuesTrainingLoss))
+        print(" * ")
+        logging.info("Epoch {}: averageActionValuesTrainingLoss = {}".format(epoch, averageActionValuesTrainingLoss))
 
         # Update the learning rate
         learningRate = learningRate * args.learningRateExponentialDecay
@@ -190,7 +221,7 @@ def main():
             monitoringSoftMaxTemperature = 0.1
         else:
             moveChoiceMode = 'SemiExhaustiveMiniMax'
-            numberOfGames = 25
+            numberOfGames = 11
             depthOfExhaustiveSearch = 1
             numberOfTopMovesToDevelop = 7
         (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
@@ -207,7 +238,7 @@ def main():
                 depthOfExhaustiveSearch=depthOfExhaustiveSearch,
                 numberOfTopMovesToDevelop=numberOfTopMovesToDevelop
             )
-        print ("main(): averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
+        logging.info ("averageRewardAgainstRandomPlayer = {}; winRate = {}; drawRate = {}; lossRate = {}".format(
             averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate))
 
         # Collect the positions from losing games

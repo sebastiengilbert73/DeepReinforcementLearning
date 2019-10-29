@@ -5,8 +5,8 @@ python learnCheckers.py \
 	--minibatchSize=16 \
 	--outputDirectory='outputs' \
 	--proportionOfRandomInitialPositions=0.5 \
-	--maximumNumberOfMovesForInitialPositions=40 \
-	--numberOfInitialPositions=256 \
+	--maximumNumberOfMovesForInitialPositions=100 \
+	--numberOfInitialPositions=32 \
 	--numberOfGamesForEvaluation=31 \
 	--learningRateExponentialDecay=0.99 \
 	--softMaxTemperatureForSelfPlayEvaluation=0.3 \

@@ -202,6 +202,7 @@ class Net(torch.nn.Module):
         outputTensorSize = ast.literal_eval(tokens[3])
         self.__init__(inputTensorSize, bodyStructure, outputTensorSize)
         self.load_state_dict(torch.load(filepath, map_location=lambda storage, location: storage))
+        self.eval()
 
     def HighestActionValueMove(self, positionTensor, player, authority):
         return self.ChooseAMove(

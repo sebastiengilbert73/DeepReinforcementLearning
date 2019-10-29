@@ -19,7 +19,8 @@ def SimulateGameAndGetReward(playerList,
                              chooseHighestProbabilityIfAtLeast,
                              preApplySoftMax,
                              softMaxTemperature,
-                             epsilon):
+                             epsilon,
+                             maximumNumberOfMoves):
     winner = None
     if nextPlayer == playerList[0]:
         moveNdx = 0
@@ -29,7 +30,7 @@ def SimulateGameAndGetReward(playerList,
         raise ValueError("expectedMoveValues.SimulateGameAndGetReward(): Unknown player '{}'".format(nextPlayer))
     if nextPlayer == playerList[1]:
         positionTensor = authority.SwapPositions(positionTensor, playerList[0], playerList[1])
-    while winner is None:
+    while winner is None and moveNdx < maximumNumberOfMoves:
         #print ("SimulateGameAndGetReward(): positionTensor = {}".format(positionTensor))
         player = playerList[moveNdx % 2]
         if neuralNetwork is None:
@@ -59,7 +60,7 @@ def SimulateGameAndGetReward(playerList,
         #print ("SimulateGameAndGetReward(): After swap: positionTensor = {}".format(positionTensor))
     if winner == playerList[0]:
         return 1.0
-    elif winner == 'draw':
+    elif winner == 'draw' or moveNdx >= maximumNumberOfMoves:
         return 0.0
     else:
         return -1.0
@@ -73,7 +74,8 @@ def PositionExpectedMoveValues(
         numberOfGamesForEvaluation,
         softMaxTemperatureForSelfPlayEvaluation,
         epsilon,
-        depthOfExhaustiveSearch
+        depthOfExhaustiveSearch,
+        maximumNumberOfMoves=100
         ):
     legalMovesMask = authority.LegalMovesMask(initialPosition, playerList[0])
     moveTensorShape = authority.MoveTensorShape()
@@ -403,7 +405,8 @@ def SemiExhaustiveMiniMax(
 def RewardStatistics(positionTensor, searchDepth, maxSearchDepth, playersList, player, authority,
                   chooseHighestProbabilityIfAtLeast,
                   neuralNetwork, softMaxTemperatureForSelfPlayEvaluation, epsilon,
-                  numberOfGamesForEvaluation):
+                  numberOfGamesForEvaluation,
+                  maximumNumberOfMoves=100):
     if searchDepth > maxSearchDepth: # Evaluate with Monte-Carlo tree search
         rewards = []
         for simulationNdx in range(numberOfGamesForEvaluation):
@@ -416,7 +419,8 @@ def RewardStatistics(positionTensor, searchDepth, maxSearchDepth, playersList, p
                 chooseHighestProbabilityIfAtLeast,
                 preApplySoftMax=True,
                 softMaxTemperature=softMaxTemperatureForSelfPlayEvaluation,
-                epsilon=epsilon
+                epsilon=epsilon,
+                maximumNumberOfMoves=(maximumNumberOfMoves - maxSearchDepth)
             )
             rewards.append(reward)
         averageReward = statistics.mean(rewards)
@@ -758,3 +762,90 @@ def AverageRewardAgainstARandomPlayerKeepLosingGames(
 
     return (rewardSum / numberOfGames, numberOfWins / numberOfGames, numberOfDraws / numberOfGames,
         numberOfLosses / numberOfGames, losingGamesPositionsListList)
+
+def SimulateAGame(
+            playerList,
+            authority,
+            neuralNetwork,
+            softMaxTemperatureForSelfPlayEvaluation,
+            epsilon,
+            maximumNumberOfMoves,
+            startingPosition=None,
+        ):
+    winner = None
+    numberOfPlayedMoves = 0
+    player = playerList[numberOfPlayedMoves % 2]
+    if startingPosition is None:
+        positionTensor = authority.InitialPosition()
+    else:
+        positionTensor = startingPosition
+    positionsList = [positionTensor]
+    #movesList = []
+    #authority.Display(positionTensor)
+    while winner is None and len(positionsList) < maximumNumberOfMoves:
+        if player == playerList[0]:
+            chosenMove = neuralNetwork.ChooseAMove(
+                positionTensor,
+                player,
+                authority,
+                chooseHighestProbabilityIfAtLeast=1.0,
+                preApplySoftMax=True,
+                softMaxTemperature=softMaxTemperatureForSelfPlayEvaluation,
+                epsilon=epsilon
+            )
+            positionTensor, winner = authority.Move(positionTensor, player, chosenMove)
+        else: # playerList[1]
+            swappedPosition = authority.SwapPositions(positionTensor, playerList[0], playerList[1])
+            chosenMove = neuralNetwork.ChooseAMove(
+                swappedPosition,
+                playerList[0],
+                authority,
+                chooseHighestProbabilityIfAtLeast=1.0,
+                preApplySoftMax=True,
+                softMaxTemperature=softMaxTemperatureForSelfPlayEvaluation,
+                epsilon=epsilon
+            )
+            swappedPosition, winner = authority.Move(swappedPosition, playerList[0], chosenMove) # Always playerList[0] that plays since we are in swap mode
+            if winner == playerList[0]:
+                winner = playerList[1]
+            positionTensor = authority.SwapPositions(swappedPosition, playerList[0], playerList[1])
+        #authority.Display(positionTensor)
+        #print ('_________________________________________')
+        positionsList.append(positionTensor)
+        #movesList.append(chosenMove)
+
+        numberOfPlayedMoves += 1
+        player = playerList[numberOfPlayedMoves % 2]
+
+    return positionsList, winner
+
+
+if __name__ == '__main__':
+    print ("expectedMoveValues.py __main__")
+
+    import checkers
+    import moveEvaluation.ConvolutionStack
+
+    authority = checkers.Authority()
+    playersList = authority.PlayersList()
+    neuralNetwork = moveEvaluation.ConvolutionStack.Net()
+    neuralNetwork.Load("/home/sebastien/projects/DeepReinforcementLearning/outputs/Net_(6,1,8,8)_[(5,32),(5,32),(5,32)]_(4,1,8,8)_checkers_48.pth")
+    softMaxTemperatureForSelfPlayEvaluation = 0.1
+    epsilon = 0.1
+    maximumNumberOfMoves = 200
+    startingPosition = None
+
+    positionsList, winner = SimulateAGame(
+        playersList,
+        authority,
+        neuralNetwork,
+        softMaxTemperatureForSelfPlayEvaluation,
+        epsilon,
+        maximumNumberOfMoves,
+        startingPosition
+    )
+    for position in positionsList:
+        authority.Display(position)
+    #print ("positionsList = \n{}".format(positionsList))
+    print ("winner = {}".format(winner))
+    print ("len(positionsList) = {}".format(len(positionsList)))
