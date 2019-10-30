@@ -73,6 +73,7 @@ def main():
 
     # Save the initial neural network, and write it's score against a random player
     neuralNetwork.Save(args.outputDirectory, 'checkers_0')
+    neuralNetwork.eval()
     (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \
         expectedMoveValues.AverageRewardAgainstARandomPlayerKeepLosingGames(
             playerList,
@@ -214,6 +215,7 @@ def main():
         #modelParametersFilename = os.path.join(args.outputDirectory, "neuralNet_connect4_" + str(epoch) + '.pth')
         #torch.save(neuralNetwork.state_dict(), modelParametersFilename)
         neuralNetwork.Save(args.outputDirectory, 'checkers_' + str(epoch))
+        neuralNetwork.eval()
         if epoch % 200 == -1:
             moveChoiceMode = 'ExpectedMoveValuesThroughSelfPlay'
             numberOfGames = 100

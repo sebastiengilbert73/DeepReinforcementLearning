@@ -771,6 +771,7 @@ def SimulateAGame(
             epsilon,
             maximumNumberOfMoves,
             startingPosition=None,
+            opponentPlaysRandomly=False
         ):
     winner = None
     numberOfPlayedMoves = 0
@@ -796,15 +797,18 @@ def SimulateAGame(
             positionTensor, winner = authority.Move(positionTensor, player, chosenMove)
         else: # playerList[1]
             swappedPosition = authority.SwapPositions(positionTensor, playerList[0], playerList[1])
-            chosenMove = neuralNetwork.ChooseAMove(
-                swappedPosition,
-                playerList[0],
-                authority,
-                chooseHighestProbabilityIfAtLeast=1.0,
-                preApplySoftMax=True,
-                softMaxTemperature=softMaxTemperatureForSelfPlayEvaluation,
-                epsilon=epsilon
-            )
+            if opponentPlaysRandomly:
+                chosenMove = utilities.ChooseARandomMove(swappedPosition, playersList[0], authority)
+            else:
+                chosenMove = neuralNetwork.ChooseAMove(
+                    swappedPosition,
+                    playerList[0],
+                    authority,
+                    chooseHighestProbabilityIfAtLeast=1.0,
+                    preApplySoftMax=True,
+                    softMaxTemperature=softMaxTemperatureForSelfPlayEvaluation,
+                    epsilon=epsilon
+                )
             swappedPosition, winner = authority.Move(swappedPosition, playerList[0], chosenMove) # Always playerList[0] that plays since we are in swap mode
             if winner == playerList[0]:
                 winner = playerList[1]
@@ -842,7 +846,8 @@ if __name__ == '__main__':
         softMaxTemperatureForSelfPlayEvaluation,
         epsilon,
         maximumNumberOfMoves,
-        startingPosition
+        startingPosition,
+        opponentPlaysRandomly=False
     )
     for position in positionsList:
         authority.Display(position)
