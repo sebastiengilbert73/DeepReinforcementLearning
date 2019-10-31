@@ -30,11 +30,12 @@ parser.add_argument('--numberOfProcesses', help='The number of processes. Defaul
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
 
+standardDeviationAlpha = 0.01
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(message)s')
 
 def MinimumNumberOfMovesForInitialPositions(epoch):
-    minimumNumberOfMoves = args.maximumNumberOfMovesForInitialPositions - 40 - int(epoch/1)
+    minimumNumberOfMoves = args.maximumNumberOfMovesForInitialPositions - 40 - int(epoch/3)
     return max(minimumNumberOfMoves, 0)
 
 
@@ -189,7 +190,14 @@ def main():
                 outputActionValuesTensor[maskNdx] = maskedOutputActionValues
 
             # Calculate the error and backpropagate
-            actionValuesLoss = loss(outputActionValuesTensor, minibatchTargetActionValuesTensor)
+            # Create a tensor with the list of legal values mask
+            minibatchLegalMovesMasksTensor = torch.zeros(outputActionValuesTensor.shape)
+            for maskNdx in range(len(minibatchLegalMovesMasks)):
+                minibatchLegalMovesMasksTensor[maskNdx] = minibatchLegalMovesMasks[maskNdx]
+
+            standardDeviationOfLegalValues = utilities.StandardDeviationOfLegalValues(outputActionValuesTensor, minibatchLegalMovesMasksTensor)
+            logging.debug("standardDeviationOfLegalValues = {}".format(standardDeviationOfLegalValues))
+            actionValuesLoss = loss(outputActionValuesTensor, minibatchTargetActionValuesTensor) - standardDeviationAlpha * standardDeviationOfLegalValues
 
             try:
                 actionValuesLoss.backward()

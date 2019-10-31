@@ -128,12 +128,17 @@ def StandardDeviationOfLegalValues(
     legalCoords = legalMovesMask.nonzero()
     #print ("StandardDeviationOfLegalValues(): legalCoords = {}".format(legalCoords))
     for valueNdx in range(legalCoords.shape[0]):
-        channel = legalCoords[valueNdx][0]
-        depth = legalCoords[valueNdx][1]
-        row = legalCoords[valueNdx][2]
-        col = legalCoords[valueNdx][3]
+        channel = legalCoords[valueNdx][-4]
+        depth = legalCoords[valueNdx][-3]
+        row = legalCoords[valueNdx][-2]
+        col = legalCoords[valueNdx][-1]
+        #print ("StandardDeviationOfLegalValues(): legalCoords[valueNdx].shape = {}".format(legalCoords[valueNdx].shape))
+        if legalCoords[valueNdx].shape[0] == 5:
+            sampleNdx = legalCoords[valueNdx][-5]
+            legalValues.append(moveValuesTensor[sampleNdx][channel][depth][row][col].item())
         #print ("StandardDeviationOfLegalValues(): moveValuesTensor[channel][depth][row][col] = {}".format(moveValuesTensor[channel][depth][row][col]))
-        legalValues.append(moveValuesTensor[channel][depth][row][col].item())
+        else:
+            legalValues.append(moveValuesTensor[channel][depth][row][col].item())
     #print ("StandardDeviationOfLegalValues(): legalValues = {}".format(legalValues))
     if len(legalValues) > 1:
         stdDev = statistics.stdev(legalValues)
