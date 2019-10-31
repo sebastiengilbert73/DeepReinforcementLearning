@@ -119,3 +119,31 @@ def CoordinatesFromFlatIndex(
               coordsTensor[2].item(),
               coordsTensor[3].item())
     return coords
+
+def StandardDeviationOfLegalValues(
+        moveValuesTensor,
+        legalMovesMask
+        ):
+    legalValues = []
+    legalCoords = legalMovesMask.nonzero()
+    #print ("StandardDeviationOfLegalValues(): legalCoords = {}".format(legalCoords))
+    for valueNdx in range(legalCoords.shape[0]):
+        channel = legalCoords[valueNdx][0]
+        depth = legalCoords[valueNdx][1]
+        row = legalCoords[valueNdx][2]
+        col = legalCoords[valueNdx][3]
+        #print ("StandardDeviationOfLegalValues(): moveValuesTensor[channel][depth][row][col] = {}".format(moveValuesTensor[channel][depth][row][col]))
+        legalValues.append(moveValuesTensor[channel][depth][row][col].item())
+    #print ("StandardDeviationOfLegalValues(): legalValues = {}".format(legalValues))
+    if len(legalValues) > 1:
+        stdDev = statistics.stdev(legalValues)
+    else:
+        stdDev = 0
+    #print ("StandardDeviationOfLegalValues(): stdDev = {}".format(stdDev))
+    return stdDev
+
+
+if __name__ == '__main__':
+    import checkers
+
+    authority = checkers.Authority()
