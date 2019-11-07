@@ -785,20 +785,23 @@ def SimulateAGame(
     #authority.Display(positionTensor)
     while winner is None and len(positionsList) < maximumNumberOfMoves:
         if player == playerList[0]:
-            chosenMove = neuralNetwork.ChooseAMove(
-                positionTensor,
-                player,
-                authority,
-                chooseHighestProbabilityIfAtLeast=1.0,
-                preApplySoftMax=True,
-                softMaxTemperature=softMaxTemperatureForSelfPlayEvaluation,
-                epsilon=epsilon
-            )
+            if neuralNetwork is None:
+                chosenMove = utilities.ChooseARandomMove(positionTensor, playerList[0], authority)
+            else:
+                chosenMove = neuralNetwork.ChooseAMove(
+                    positionTensor,
+                    player,
+                    authority,
+                    chooseHighestProbabilityIfAtLeast=1.0,
+                    preApplySoftMax=True,
+                    softMaxTemperature=softMaxTemperatureForSelfPlayEvaluation,
+                    epsilon=epsilon
+                )
             positionTensor, winner = authority.Move(positionTensor, player, chosenMove)
         else: # playerList[1]
             swappedPosition = authority.SwapPositions(positionTensor, playerList[0], playerList[1])
             if opponentPlaysRandomly:
-                chosenMove = utilities.ChooseARandomMove(swappedPosition, playersList[0], authority)
+                chosenMove = utilities.ChooseARandomMove(swappedPosition, playerList[0], authority)
             else:
                 chosenMove = neuralNetwork.ChooseAMove(
                     swappedPosition,

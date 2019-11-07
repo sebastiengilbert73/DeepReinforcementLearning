@@ -17,7 +17,7 @@ class Authority(gameAuthority.GameAuthority):
     def __init__(self):
         self.playersList= ['black', 'red']
         self.positionTensorShape = (6, 1, 8, 8)
-        # 4 channels: Kings black, checkers black, checkers red, kings red, black last move's jump (if any), red last move's jump (if any)
+        # 6 channels: Kings black, checkers black, checkers red, kings red, black last move's jump (if any), red last move's jump (if any)
         self.moveTensorShape = (4, 1, 8, 8)
         # 4 channels: NW, NE, SE, SW
         # (H, W): origin of the moving piece
