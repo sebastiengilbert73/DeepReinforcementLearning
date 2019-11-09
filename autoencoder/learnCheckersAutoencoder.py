@@ -72,15 +72,15 @@ def main():
     else:
         neuralNetwork = position.Net(
             positionTensorShape,
-            bodyStructure=[(3, 16, 2), (3, 32, 2), (3, 64, 2)],#, (5, 16), (5, 16)],
-            numberOfLatentVariables=400
+            bodyStructure=[(5, 32, 2), (5, 64, 2)],#, (3, 64, 2)],#, (5, 16), (5, 16)],
+            numberOfLatentVariables=200
         )
 
     # Create the optimizer
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, neuralNetwork.parameters()), lr=args.learningRate, betas=(0.5, 0.999))
 
     # Loss function
-    loss = torch.nn.BCEWithLogitsLoss()# torch.nn.MSELoss()
+    loss = torch.nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([3.0]))# torch.nn.MSELoss()
 
     # Initial learning rate
     learningRate = args.learningRate
