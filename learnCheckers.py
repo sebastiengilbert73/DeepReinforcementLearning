@@ -8,6 +8,7 @@ import generateMoveStatistics
 import checkers
 import moveEvaluation.ConvolutionStack
 import logging
+import autoencoder.position
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--disable-cuda', action='store_true', help='Disable CUDA')
@@ -51,14 +52,25 @@ def main():
         neuralNetwork = moveEvaluation.ConvolutionStack.Net()
         neuralNetwork.Load(args.startWithNeuralNetwork)
     else:
-        neuralNetwork = moveEvaluation.ConvolutionStack.Net(
+        """neuralNetwork = moveEvaluation.ConvolutionStack.Net(
             positionTensorShape,
             [(5, 32), (5, 32), (5, 32)],
             moveTensorShape
         )
+        """
+        autoencoderNet = autoencoder.position.Net()
+        autoencoderNet.Load('/home/sebastien/projects/DeepReinforcementLearning/moveEvaluation/autoencoder/outputs/AutoencoderNet_(6,1,8,8)_[(5,16,2),(5,32,2)]_200_checkersAutoencoder_44.pth')
+        neuralNetwork = moveEvaluation.ConvolutionStack.BuildAnActionValueDecoderFromAnAutoencoder(
+            autoencoderNet, [(16, 1, 2, 2), (8, 1, 4, 4)], (4, 1, 8, 8))
+        for name, p in neuralNetwork.named_parameters():
+            logging.info ("layer: {}".format(name))
+            if "encoding" in name:
+                logging.info("Setting p.requires_grad = False")
+                p.requires_grad = False
+    print ("main(): neuralNetwork = {}".format(neuralNetwork))
 
     # Create the optimizer
-    optimizer = torch.optim.Adam(neuralNetwork.parameters(), lr=args.learningRate, betas=(0.5, 0.999))
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, neuralNetwork.parameters()), lr=args.learningRate, betas=(0.5, 0.999))
 
     # Loss function
     loss = torch.nn.MSELoss()

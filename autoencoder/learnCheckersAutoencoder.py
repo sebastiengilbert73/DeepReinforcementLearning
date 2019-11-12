@@ -23,6 +23,7 @@ parser.add_argument('--numberOfPositionsForTraining', help='The number of positi
 parser.add_argument('--numberOfPositionsForValidation', help='The number of positions for validation per epoch. Default: 128', type=int, default=128)
 parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The depth of exhaustive search, when generating move statitics. Default: 1', default=1)
 parser.add_argument('--learningRateExponentialDecay', help='The learning rate exponential decay. Default: 0.99', type=float, default=0.99)
+parser.add_argument('--positiveCaseWeight', help='For the loss BCEWithLogitsLoss, the weight of positive cases. Default: 3.0', type=float, default=3.0)
 
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
@@ -72,7 +73,7 @@ def main():
     else:
         neuralNetwork = position.Net(
             positionTensorShape,
-            bodyStructure=[(5, 32, 2), (5, 64, 2)],#, (3, 64, 2)],#, (5, 16), (5, 16)],
+            bodyStructure=[(5, 16, 2), (5, 32, 2)],#, (3, 64, 2)],#, (5, 16), (5, 16)],
             numberOfLatentVariables=200
         )
 
@@ -80,7 +81,7 @@ def main():
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, neuralNetwork.parameters()), lr=args.learningRate, betas=(0.5, 0.999))
 
     # Loss function
-    loss = torch.nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([3.0]))# torch.nn.MSELoss()
+    loss = torch.nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([args.positiveCaseWeight]))# torch.nn.MSELoss()
 
     # Initial learning rate
     learningRate = args.learningRate

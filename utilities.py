@@ -147,6 +147,84 @@ def StandardDeviationOfLegalValues(
     #print ("StandardDeviationOfLegalValues(): stdDev = {}".format(stdDev))
     return stdDev
 
+def ChooseAMove(neuralNetwork, positionTensor, player, gameAuthority, chooseHighestProbabilityIfAtLeast,
+                preApplySoftMax, softMaxTemperature,
+                epsilon):
+    actionValuesTensor = neuralNetwork(positionTensor.unsqueeze(0)) # Add a dummy minibatch
+    # Remove the dummy minibatch
+    actionValuesTensor = torch.squeeze(actionValuesTensor, 0)
+    #print ("Net.ChooseAMove(): actionValuesTensor = \n{}".format(actionValuesTensor))
+
+    chooseARandomMove = random.random() < epsilon
+    if chooseARandomMove:
+        #print ("Net.ChooseAMove(): Choosing a random move")
+        return ChooseARandomMove(positionTensor, player, gameAuthority)
+
+    # Else: choose according to probabilities
+    legalMovesMask = gameAuthority.LegalMovesMask(positionTensor, player)
+    if torch.nonzero(legalMovesMask).size(0) == 0:
+        return None
+
+    normalizedActionValuesTensor = NormalizeProbabilities(actionValuesTensor,
+                                                           legalMovesMask,
+                                                           preApplySoftMax=preApplySoftMax,
+                                                           softMaxTemperature=softMaxTemperature)
+
+    #print ("Net.ChooseAMove(): normalizedActionValuesTensor = \n{}".format(normalizedActionValuesTensor))
+    randomNbr = random.random()
+    actionValuesTensorShape = normalizedActionValuesTensor.shape
+
+    maximumProbabilityFlatIndex = normalizedActionValuesTensor.argmax().item()
+    maximumProbability = normalizedActionValuesTensor.view(-1)[
+        maximumProbabilityFlatIndex].item()
+    if maximumProbability >= chooseHighestProbabilityIfAtLeast:
+        #print ("Net.ChooseAMove(): The maximum probability ({}) is above the threshold ({})".format(maximumProbability, chooseHighestProbabilityIfAtLeast))
+        highestProbabilityCoords = CoordinatesFromFlatIndex(
+            maximumProbabilityFlatIndex,
+            actionValuesTensorShape
+        )
+        chosenMoveArr = numpy.zeros(gameAuthority.MoveTensorShape())
+        chosenMoveArr[highestProbabilityCoords] = 1.0
+        return torch.from_numpy(chosenMoveArr).float()
+
+    # Else: Choose with roulette
+    #print ("Net.ChooseAMove(): Roulette!")
+    runningSum = 0
+    chosenCoordinates = None
+
+    nonZeroCoordsTensor = torch.nonzero(legalMovesMask)
+    if nonZeroCoordsTensor.size(0) == 0:
+        print ("utilities.ChooseAMove(): positionTensor = \n{}".format(positionTensor))
+        print ("utilities.ChooseAMove(): actionValuesTensor = \n{}".format(actionValuesTensor))
+        print ("utilities.ChooseAMove(): legalMovesMask =\n{}".format(legalMovesMask))
+        print ("utilities.ChooseAMove(): normalizedActionValuesTensor =\n{}".format(normalizedActionValuesTensor))
+        raise ValueError("utilities.ChooseAMove(): legalMovesMask doesn't have a non-zero entry")
+
+    for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0) - 1):
+        nonZeroCoords = nonZeroCoordsTensor[nonZeroCoordsNdx]
+        runningSum += normalizedActionValuesTensor[
+            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]
+        ]
+        if runningSum >= randomNbr and chosenCoordinates is None:
+            chosenCoordinates = (nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3])
+            #print ("Net.ChooseAMove(): chosenCoordinates = {}".format(chosenCoordinates))
+            break # Stop looping
+    if chosenCoordinates is None:# and randomNbr - runningSum < 0.000001: # Choose the last candidate
+        chosenNdx = nonZeroCoordsTensor.size(0) - 1
+        nonZeroCoords = nonZeroCoordsTensor[chosenNdx]
+        chosenCoordinates = (nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3])
+
+    if chosenCoordinates is None:
+        print ("utilities.ChooseAMove(): positionTensor = \n{}".format(positionTensor))
+        print ("utilities.ChooseAMove(): actionValuesTensor = \n{}".format(actionValuesTensor))
+        print ("utilities.ChooseAMove(): legalMovesMask =\n{}".format(legalMovesMask))
+        print ("utilities.ChooseAMove(): normalizedActionValuesTensor =\n{}".format(normalizedActionValuesTensor))
+        print ("utilities.ChooseAMove(): runningSum = {}; randomNbr = {}".format(runningSum, randomNbr))
+        raise IndexError("utilities.ChooseAMove(): chosenCoordinates is None...!???")
+
+    chosenMoveArr = numpy.zeros(gameAuthority.MoveTensorShape())
+    chosenMoveArr[chosenCoordinates] = 1.0
+    return torch.from_numpy(chosenMoveArr).float()
 
 if __name__ == '__main__':
     import checkers

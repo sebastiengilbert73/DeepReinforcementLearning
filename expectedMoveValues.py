@@ -37,7 +37,8 @@ def SimulateGameAndGetReward(playerList,
             chosenMoveTensor = utilities.ChooseARandomMove(positionTensor, playerList[0], authority)
         else:
             #print ("SimulateGameAndGetReward(): player = {}; positionTensor = \n{}".format(player, positionTensor))
-            chosenMoveTensor = neuralNetwork.ChooseAMove(
+            chosenMoveTensor = utilities.ChooseAMove(
+                neuralNetwork,
                 positionTensor,
                 playerList[0],
                 authority,
@@ -293,7 +294,7 @@ def SemiExhaustiveMiniMax(
     standardDeviationTensor = torch.zeros(moveTensorShape) - 1.0
 
     neuralNetworkOutput = neuralNetwork(position.unsqueeze(0)).squeeze(0)
-    #print ("SemiExhaustiveSoftMax(): neuralNetworkOutput = \n{}".format(neuralNetworkOutput))
+    #print ("SemiExhaustiveSoftMax(): neuralNetworkOutput.shape = {}".format(neuralNetworkOutput.shape))
 
     nonZeroCoordsToNetOutputDic = dict()
     for nonZeroCoordsNdx in range(nonZeroCoordsTensor.size(0)):
@@ -532,7 +533,8 @@ def AverageRewardAgainstARandomPlayer(
                 chosenMoveTensor = utilities.ChooseARandomMove(positionTensor, player, authority)
             else:
                 if moveChoiceMode == 'SoftMax':
-                    chosenMoveTensor = neuralNetwork.ChooseAMove(
+                    chosenMoveTensor = utilities.ChooseAMove(
+                        neuralNetwork,
                         positionTensor,
                         player,
                         authority,
@@ -628,7 +630,8 @@ def AverageRewardAgainstARandomPlayerKeepLosingGames(
                 chosenMoveTensor = utilities.ChooseARandomMove(positionTensor, player, authority)
             else:
                 if moveChoiceMode == 'SoftMax':
-                    chosenMoveTensor = neuralNetwork.ChooseAMove(
+                    chosenMoveTensor = utilities.ChooseAMove(
+                        neuralNetwork,
                         positionTensor,
                         player,
                         authority,
@@ -788,7 +791,8 @@ def SimulateAGame(
             if neuralNetwork is None:
                 chosenMove = utilities.ChooseARandomMove(positionTensor, playerList[0], authority)
             else:
-                chosenMove = neuralNetwork.ChooseAMove(
+                chosenMove = utilities.ChooseAMove(
+                    neuralNetwork,
                     positionTensor,
                     player,
                     authority,
@@ -803,7 +807,8 @@ def SimulateAGame(
             if opponentPlaysRandomly:
                 chosenMove = utilities.ChooseARandomMove(swappedPosition, playerList[0], authority)
             else:
-                chosenMove = neuralNetwork.ChooseAMove(
+                chosenMove = utilities.ChooseAMove(
+                    neuralNetwork,
                     swappedPosition,
                     playerList[0],
                     authority,

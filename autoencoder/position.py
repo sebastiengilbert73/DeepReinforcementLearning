@@ -44,7 +44,7 @@ class Net(torch.nn.Module):
                                                                    max((previousLayerPhysicalShape[2] + 1)//stride, 1))
 
             previousLayerPhysicalShape = self.layerNameToTensorPhysicalShapeDict[layerName]
-            bodyStructureDict[layerName] = self.ConvolutionLayer(numberOfInputChannels,
+            bodyStructureDict[layerName] = ConvolutionLayer(numberOfInputChannels,
                                                                  kernelDimensionNumberPair[0],
                                                                  kernelDimensionNumberPair[1],
                                                                  stride,
@@ -68,15 +68,6 @@ class Net(torch.nn.Module):
                                                 self.positionTensorShape[1] * self.positionTensorShape[2] * \
                                                 self.positionTensorShape[3])
 
-    def ConvolutionLayer(self, inputNumberOfChannels, kernelDimension, numberOfOutputChannels, stride=1, dilation=1):
-        return torch.nn.Sequential(
-            torch.nn.Conv3d(in_channels=inputNumberOfChannels,
-                            out_channels=numberOfOutputChannels,
-                            kernel_size=kernelDimension,
-                            padding=int(kernelDimension/2),
-                            stride=stride,
-                            dilation=dilation),
-            torch.nn.ReLU())
 
     def forward(self, inputTensor):
         minibatchSize = inputTensor.shape[0]
@@ -119,6 +110,12 @@ class Net(torch.nn.Module):
         self.load_state_dict(torch.load(filepath, map_location=lambda storage, location: storage))
         self.eval()
 
+    def EncodingLayers(self):
+        return self.bodyStructureSeq, self.fullyConnectedLayer
+
+    def Shapes(self):
+        return self.positionTensorShape, self.bodyActivationNumberOfEntries, self.numberOfLatentVariables, self.bodyStructureList
+
     """def AddConvolutionLayer(self, kernelDimension):
         lastLayer = self.bodyStructure[-1]
         print ("AddConvolutionLayer(): lastLayer = {}".format(lastLayer))
@@ -146,6 +143,16 @@ class Net(torch.nn.Module):
             decodingDict[layerName] = self.ConvolutionLayer(numberOfInputChannels, kernelSize, outputNumberOfChannels)
         self.decoding = torch.nn.Sequential(decodingDict)
     """
+
+def ConvolutionLayer(inputNumberOfChannels, kernelDimension, numberOfOutputChannels, stride=1, dilation=1):
+    return torch.nn.Sequential(
+        torch.nn.Conv3d(in_channels=inputNumberOfChannels,
+                        out_channels=numberOfOutputChannels,
+                        kernel_size=kernelDimension,
+                        padding=int(kernelDimension/2),
+                        stride=stride,
+                        dilation=dilation),
+        torch.nn.ReLU())
 
 def ConvertToOneHotPositionTensor(reconstructedPositionTensor): # Convert to a high level position tensor, with 0 and 1's
     positionTensorShape = reconstructedPositionTensor.shape #([N,] C, D, H, W)
