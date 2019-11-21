@@ -39,9 +39,13 @@ class Net(torch.nn.Module):
             if len(kernelDimensionNumberPair) == 3:
                 stride = kernelDimensionNumberPair[2]
 
-            self.layerNameToTensorPhysicalShapeDict[layerName] = ( max((previousLayerPhysicalShape[0] + 1)//stride, 1),
+            if stride == 1:
+                self.layerNameToTensorPhysicalShapeDict[layerName] = previousLayerPhysicalShape
+            else:
+                self.layerNameToTensorPhysicalShapeDict[layerName] = ( max((previousLayerPhysicalShape[0] + 1)//stride, 1),
                                                                    max((previousLayerPhysicalShape[1] + 1)//stride, 1),
                                                                    max((previousLayerPhysicalShape[2] + 1)//stride, 1))
+            print ("self.layerNameToTensorPhysicalShapeDict[{}] = {}".format(layerName, self.layerNameToTensorPhysicalShapeDict[layerName]))
 
             previousLayerPhysicalShape = self.layerNameToTensorPhysicalShapeDict[layerName]
             bodyStructureDict[layerName] = ConvolutionLayer(numberOfInputChannels,
