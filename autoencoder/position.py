@@ -45,7 +45,7 @@ class Net(torch.nn.Module):
                 self.layerNameToTensorPhysicalShapeDict[layerName] = ( max((previousLayerPhysicalShape[0] + 1)//stride, 1),
                                                                    max((previousLayerPhysicalShape[1] + 1)//stride, 1),
                                                                    max((previousLayerPhysicalShape[2] + 1)//stride, 1))
-            print ("self.layerNameToTensorPhysicalShapeDict[{}] = {}".format(layerName, self.layerNameToTensorPhysicalShapeDict[layerName]))
+            #print ("self.layerNameToTensorPhysicalShapeDict[{}] = {}".format(layerName, self.layerNameToTensorPhysicalShapeDict[layerName]))
 
             previousLayerPhysicalShape = self.layerNameToTensorPhysicalShapeDict[layerName]
             bodyStructureDict[layerName] = ConvolutionLayer(numberOfInputChannels,
