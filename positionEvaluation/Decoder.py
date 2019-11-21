@@ -75,7 +75,7 @@ class RandomForest(Predictor.Evaluator):
                 treeErrorSum = 0
                 for exampleNdx in range(minibatchSize):
                     featuresTensor = latentVariablesTensor[exampleNdx]
-                    prediction = self.treesList[treeNdx].predict(featuresTensor.numpy())
+                    prediction = self.treesList[treeNdx].predict(featuresTensor.detach().numpy().reshape(1, -1))[0]
                     squaredError = (prediction - minibatchTargetValues[exampleNdx].item())**2
                     treeErrorSum += squaredError
                 treeErrorSumsList.append(treeErrorSum)
@@ -113,7 +113,7 @@ def BuildARandomForestDecoderFromAnAutoencoder(autoencoderNet, maximumNumberOfTr
 def main():
     print("Decoder.py main()")
     autoencoderNN = autoencoder.position.Net()
-    autoencoderNN.Load('/home/segilber/projects/DeepReinforcementLearning/autoencoder/output/AutoencoderNet_(2,1,3,3)_[(3,16,1),(3,32,1)]_20_tictactoeAutoencoder_1000.pth')
+    autoencoderNN.Load('/home/segilber/projects/DeepReinforcementLearning/autoencoder/outputs/AutoencoderNet_(2,1,3,3)_[(3,16,1),(3,32,1)]_20_tictactoeAutoencoder_1000.pth')
     print ("autoencoderNN:\n{}".format(autoencoderNN))
     randomForest = BuildARandomForestDecoderFromAnAutoencoder(autoencoderNN, maximumNumberOfTrees=100, treesMaximumDepth=6)
     print ("randomForest=\n{}".format(randomForest))
@@ -138,6 +138,8 @@ def main():
     valuesList = randomForest.Value(randomPosition)
     print("Decoder.py main(): After learning: valuesList = {}".format(valuesList))
     print("Decoder.py main(): targetValues = {}".format(targetValues))
+
+    Predictor.SimulateAGame(randomForest, authority, startingPosition=None, nextPlayer=None, epsilon=0.1)
 
 if __name__ == '__main__':
     main()
