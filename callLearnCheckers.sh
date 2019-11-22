@@ -6,9 +6,9 @@ python learnCheckers.py \
 	--outputDirectory='outputs' \
 	--proportionOfRandomInitialPositions=0.5 \
 	--maximumNumberOfMovesForInitialPositions=100 \
-	--numberOfInitialPositions=32 \
+	--numberOfInitialPositions=0 \
 	--numberOfGamesForEvaluation=31 \
-	--learningRateExponentialDecay=0.99 \
+	--learningRateExponentialDecay=0.999 \
 	--softMaxTemperatureForSelfPlayEvaluation=0.3 \
 	--epsilon=0.1 \
 	--depthOfExhaustiveSearch=1 \

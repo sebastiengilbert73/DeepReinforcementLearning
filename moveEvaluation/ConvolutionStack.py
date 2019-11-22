@@ -384,21 +384,42 @@ class ActionValueDecoder(torch.nn.Module):
             stride = 1
             padding = 1
 
-            #print ("__init__(): originalShape = {}; finalShape = {}".format(originalShape, finalShape))
-            dilation = (finalShape[1] // originalShape[1], finalShape[2] // originalShape[2], finalShape[3] // originalShape[3])
-            output_padding = (dilation[0] - 1, dilation[1] - 1, dilation[2] - 1 )
-            decodingTransposeConvolutionsDict[layerName] = \
-                torch.nn.ConvTranspose3d(
-                    in_channels=numberOfInputChannels,
-                    out_channels=numberOfOutputChannels,
-                    kernel_size=kernel_size,
-                    stride=stride,
-                    padding=padding,
-                    output_padding=output_padding,
-                    groups=1,
-                    bias=True,
-                    dilation=dilation
-                )
+            if finalShape[1] >= originalShape[1] and finalShape[2] >= originalShape[2] and finalShape[3] >= originalShape[3]: # Expanding
+                #print ("__init__(): originalShape = {}; finalShape = {}".format(originalShape, finalShape))
+                dilation = (finalShape[1] // originalShape[1], finalShape[2] // originalShape[2], finalShape[3] // originalShape[3])
+                output_padding = (dilation[0] - 1, dilation[1] - 1, dilation[2] - 1 )
+                decodingTransposeConvolutionsDict[layerName] = \
+                    torch.nn.Sequential(
+                        torch.nn.ReLU(),
+                        torch.nn.ConvTranspose3d(
+                            in_channels=numberOfInputChannels,
+                            out_channels=numberOfOutputChannels,
+                            kernel_size=kernel_size,
+                            stride=stride,
+                            padding=padding,
+                            output_padding=output_padding,
+                            groups=1,
+                            bias=True,
+                            dilation=dilation
+                        )
+                    )
+            elif finalShape[1] <= originalShape[1] and finalShape[2] <= originalShape[2] and finalShape[3] <= originalShape[3]: # Shrinking
+                stride = (originalShape[1] // finalShape[1], originalShape[2] // finalShape[2], originalShape[3] // finalShape[3])
+                decodingTransposeConvolutionsDict[layerName] = \
+                    torch.nn.Sequential(
+                        torch.nn.ReLU(),
+                        torch.nn.Conv3d(
+                            in_channels=numberOfInputChannels,
+                            out_channels=numberOfOutputChannels,
+                            kernel_size=kernel_size,
+                            stride=stride,
+                            padding=padding,
+                            bias=True,
+                            dilation=1
+                        )
+                    )
+            else:
+                raise ValueError("__init__(): originalShape {} and finalShape {} should be either expanding or shrinking".format(originalShape, finalShape))
         self.decodingTransposeConvolutionsSeq = torch.nn.Sequential(decodingTransposeConvolutionsDict)
         self.ReLU = torch.nn.ReLU()
         self.Sigmoid = torch.nn.Sigmoid()
@@ -414,7 +435,7 @@ class ActionValueDecoder(torch.nn.Module):
 
         # Decoding
         activationTensor = self.decodingFullyConnectedLayer(activationTensor)
-        activationTensor = self.ReLU(activationTensor)
+        #activationTensor = self.ReLU(activationTensor)
         #print ("forward(): self.decodingIntermediaryLayerShapes[0] = {}".format(self.decodingIntermediaryLayerShapes[0]))
         activationTensor = activationTensor.view(minibatchSize, self.decodingIntermediaryLayerShapes[0][0], \
                                                  self.decodingIntermediaryLayerShapes[0][1], \
@@ -480,6 +501,169 @@ def BuildAnActionValueDecoderFromAnAutoencoder(autoencoderNet, intermediateTenso
         outputTensorShape=outputTensorShape)
     return actionValueDecoder
 
+
+# *****************************************************************************************
+class ActionValuePyramid(torch.nn.Module):
+    def __init__(self,
+                 inputTensorShape=(6, 1, 8, 8),
+                 encodingBodyStructureList=[(3, 16, 2)],
+                 encodingBodyStructureSeq=None,              # Obtained from an autoencoder
+                 encodingBodyActivationNumberOfEntries=64, # Obtained from an autoencoder
+                 encodingFullyConnectedLayer=None,                   # Obtained from an autoencoder
+                 numberOfLatentVariables=100,               # Obtained from an autoencoder
+                 decodingIntermediaryLayerSizes=[50, 32],
+                 outputTensorShape=(4, 1, 8, 8)):  # Both input and output tensor shapes must be (C, D, H, W)
+        super(ActionValuePyramid, self).__init__()
+        self.inputTensorShape = inputTensorShape
+        self.encodingBodyStructureList = encodingBodyStructureList
+        self.layerNameToTensorPhysicalShapeDict = {}
+        previousLayerPhysicalShape = (
+            self.inputTensorShape[1], self.inputTensorShape[2], self.inputTensorShape[3])
+        numberOfInputChannels = inputTensorShape[0]
+        bodyStructureDict = collections.OrderedDict()
+        self.encodingLayerNames = []
+        if encodingBodyStructureSeq is None:
+            for layerNdx in range(len(encodingBodyStructureList)):
+                kernelDimensionNumberTrio = encodingBodyStructureList[layerNdx]
+                if len(kernelDimensionNumberTrio) != 3:
+                    raise ValueError(
+                        "ActionValueDecoder.__init__(): The length of the tuple {} is not 3".format(kernelDimensionNumberTrio))
+                layerName = 'layer_' + str(layerNdx)
+                stride = kernelDimensionNumberTrio[2]
+
+                self.layerNameToTensorPhysicalShapeDict[layerName] = (
+                max((previousLayerPhysicalShape[0] + 1) // stride, 1),
+                max((previousLayerPhysicalShape[1] + 1) // stride, 1),
+                max((previousLayerPhysicalShape[2] + 1) // stride, 1))
+
+                previousLayerPhysicalShape = self.layerNameToTensorPhysicalShapeDict[layerName]
+                bodyStructureDict[layerName] = autoencoder.position.ConvolutionLayer(numberOfInputChannels,
+                                                                     kernelDimensionNumberTrio[0],
+                                                                     kernelDimensionNumberTrio[1],
+                                                                     stride,
+                                                                     dilation=1)
+                self.encodingLayerNames.append(layerName)
+                numberOfInputChannels = kernelDimensionNumberTrio[1]
+            self.encodingBodyStructureSeq = torch.nn.Sequential(bodyStructureDict)
+        else:
+            self.encodingBodyStructureSeq = encodingBodyStructureSeq
+
+        self.encodingBodyActivationNumberOfEntries = encodingBodyActivationNumberOfEntries
+        if encodingFullyConnectedLayer is None:
+            self.encodingFullyConnectedLayer = torch.nn.Linear(self.encodingBodyActivationNumberOfEntries, numberOfLatentVariables)
+        else:
+            self.encodingFullyConnectedLayer = encodingFullyConnectedLayer
+
+        self.numberOfLatentVariables = numberOfLatentVariables
+        self.decodingIntermediaryLayerSizes = decodingIntermediaryLayerSizes
+        self.outputTensorShape = outputTensorShape
+
+        self.decodingInputNumberOfEntries = self.decodingIntermediaryLayerSizes[0]
+        #self.decodingFullyConnectedLayer = torch.nn.Linear(self.numberOfLatentVariables, self.decodingInputNumberOfEntries)
+
+
+        decodingFullyConnectedLayersDict = collections.OrderedDict()
+        numberOfInputs = self.numberOfLatentVariables
+        for decodingLayerNdx in range(len(self.decodingIntermediaryLayerSizes)):
+            layerName = 'decoding_' + str(decodingLayerNdx)
+            decodingFullyConnectedLayersDict[layerName] = \
+                torch.nn.Sequential(torch.nn.ReLU(),
+                                    torch.nn.Linear(numberOfInputs, self.decodingIntermediaryLayerSizes[decodingLayerNdx])
+                                    )
+            numberOfInputs = self.decodingIntermediaryLayerSizes[decodingLayerNdx]
+
+        # Last fully connected layer
+        lastLayerName = 'decoding_' + str(len(self.decodingIntermediaryLayerSizes))
+        decodingFullyConnectedLayersDict[lastLayerName] = \
+            torch.nn.Sequential(torch.nn.ReLU(),
+                                torch.nn.Linear(numberOfInputs, self.outputTensorShape[0] * \
+                                                self.outputTensorShape[1] * self.outputTensorShape[2] * \
+                                                self.outputTensorShape[3]))
+
+        self.decodingFullyConnectedLayersSeq = torch.nn.Sequential(decodingFullyConnectedLayersDict)
+        self.ReLU = torch.nn.ReLU()
+        self.Sigmoid = torch.nn.Sigmoid()
+
+    def forward(self, inputTensor):
+        minibatchSize = inputTensor.shape[0]
+
+        activationTensor = inputTensor
+        activationTensor = self.encodingBodyStructureSeq(activationTensor)
+        activationTensor = activationTensor.view(minibatchSize, self.encodingBodyActivationNumberOfEntries)
+        activationTensor = self.encodingFullyConnectedLayer(activationTensor)
+        #activationTensor = self.ReLU(activationTensor)
+
+        # Decoding
+        activationTensor = self.decodingFullyConnectedLayersSeq(activationTensor)
+        activationTensor = activationTensor.view((minibatchSize, self.outputTensorShape[0],
+                                                  self.outputTensorShape[1],
+                                                  self.outputTensorShape[2],
+                                                  self.outputTensorShape[3]))
+        activationTensor = -1.0 + 2.0 * self.Sigmoid(activationTensor)
+        return activationTensor
+
+    def Save(self, directory, filenameSuffix):
+        filename = 'ActionValuePyramid_' + str(self.inputTensorShape) + '_' + \
+                   str(self.encodingBodyStructureList) + '_' + \
+                   str(self.encodingBodyActivationNumberOfEntries) + '_' + \
+                   str(self.numberOfLatentVariables) + '_' + \
+                   str(self.decodingIntermediaryLayerSizes) + '_' + \
+                   str(self.outputTensorShape) + '_' + \
+                   filenameSuffix + '.pth'
+        # Remove spaces
+        filename = filename.replace(' ', '')
+        filepath = os.path.join(directory, filename)
+        torch.save(self.state_dict(), filepath)
+
+    def Load(self, filepath):
+        filename = os.path.basename(filepath)
+
+        # Tokenize the filename with '_'
+        tokens = filename.split('_')
+        if len(tokens) < 7:
+            raise ValueError("ActionValuePyramid.Load(): The number of tokens of {} is less than 7 ({})".format(filename, len(tokens)))
+        inputTensorShape = ast.literal_eval(tokens[1])
+        encodingBodyStructureList = ast.literal_eval(tokens[2])
+        encodingBodyActivationNumberOfEntries = int(tokens[3])
+        numberOfLatentVariables = int(tokens[4])
+        decodingIntermediaryLayerSizes = ast.literal_eval(tokens[5])
+        outputTensorShape = ast.literal_eval(tokens[6])
+        self.__init__(
+            inputTensorShape,
+            encodingBodyStructureList,
+            None,
+            encodingBodyActivationNumberOfEntries,
+            None,
+            numberOfLatentVariables,
+            decodingIntermediaryLayerSizes,
+            outputTensorShape)
+        self.load_state_dict(torch.load(filepath, map_location=lambda storage, location: storage))
+        self.eval()
+
+def BuildAnActionValuePyramidFromAnAutoencoder(autoencoderNet, intermediateTensorSizesList, outputTensorShape):
+    encodingBodyStructureSeq, encodingFullyConnectedLayer = autoencoderNet.EncodingLayers()
+    positionTensorShape, bodyActivationNumberOfEntries, numberOfLatentVariables, bodyStructureList = autoencoderNet.Shapes()
+    actionValuePyramid = ActionValuePyramid(
+        inputTensorShape=positionTensorShape,
+        encodingBodyStructureList=bodyStructureList,
+        encodingBodyStructureSeq=encodingBodyStructureSeq,  # Obtained from an autoencoder
+        encodingBodyActivationNumberOfEntries=bodyActivationNumberOfEntries,  # Obtained from an autoencoder
+        encodingFullyConnectedLayer=encodingFullyConnectedLayer,  # Obtained from an autoencoder
+        numberOfLatentVariables=numberOfLatentVariables,  # Obtained from an autoencoder
+        decodingIntermediaryLayerSizes=intermediateTensorSizesList,
+        outputTensorShape=outputTensorShape)
+    return actionValuePyramid
+# *****************************************************************************************
+
+
+
+
+
+
+
+
+
+
 def main():
 
     print ("ConvolutionStack.py main()")
@@ -491,14 +675,14 @@ def main():
     autoencoderNet = autoencoder.position.Net()
     autoencoderNet.Load('/home/sebastien/projects/DeepReinforcementLearning/autoencoder/outputs/AutoencoderNet_(6,1,8,8)_[(5,16,2),(5,32,2)]_200_checkersAutoencoder_44.pth')
 
-    actionValueDecoder = BuildAnActionValueDecoderFromAnAutoencoder(autoencoderNet, [(24, 1, 2, 2), (12, 1, 4, 4)], (4, 1, 8, 8))
-
+    actionValuePyramid = BuildAnActionValuePyramidFromAnAutoencoder(autoencoderNet, [512, 256], (4, 1, 8, 8))
+    print (actionValuePyramid)
     authority = checkers.Authority()
     inputTensor = authority.InitialPosition()
-    outputTensor = actionValueDecoder(inputTensor.unsqueeze(0))
-    print ("outputTensor = {}".format(outputTensor))
+    outputTensor = actionValuePyramid(inputTensor.unsqueeze(0))
+    #print ("outputTensor = {}".format(outputTensor))
 
-    actionValueDecoder.Save('./', 'test2')
+    actionValuePyramid.Save('./', 'test3')
 
     #actionValueDecoder = ActionValueDecoder()
     #actionValueDecoder.Load('/home/sebastien/projects/DeepReinforcementLearning/moveEvaluation/ActionValueDecoder_(6,1,8,8)_[(5,16,2),(5,32,2)]_128_200_[(16,1,2,2),(8,1,4,4)]_(4,1,8,8)_test1.pth')

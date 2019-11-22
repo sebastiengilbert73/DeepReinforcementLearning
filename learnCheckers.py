@@ -31,12 +31,12 @@ parser.add_argument('--numberOfProcesses', help='The number of processes. Defaul
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
 
-standardDeviationAlpha = 0.01
+standardDeviationAlpha = 0.00
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(message)s')
 
 def MinimumNumberOfMovesForInitialPositions(epoch):
-    minimumNumberOfMoves = args.maximumNumberOfMovesForInitialPositions - 40 - int(epoch/3)
+    minimumNumberOfMoves = args.maximumNumberOfMovesForInitialPositions - 40# - int(epoch/3)
     return max(minimumNumberOfMoves, 0)
 
 
@@ -60,8 +60,8 @@ def main():
         """
         autoencoderNet = autoencoder.position.Net()
         autoencoderNet.Load('/home/sebastien/projects/DeepReinforcementLearning/moveEvaluation/autoencoder/outputs/AutoencoderNet_(6,1,8,8)_[(5,16,2),(5,32,2)]_200_checkersAutoencoder_44.pth')
-        neuralNetwork = moveEvaluation.ConvolutionStack.BuildAnActionValueDecoderFromAnAutoencoder(
-            autoencoderNet, [(16, 1, 2, 2), (8, 1, 4, 4)], (4, 1, 8, 8))
+        neuralNetwork = moveEvaluation.ConvolutionStack.BuildAnActionValuePyramidFromAnAutoencoder(
+            autoencoderNet, [512, 360], (4, 1, 8, 8))
         for name, p in neuralNetwork.named_parameters():
             logging.info ("layer: {}".format(name))
             if "encoding" in name:
@@ -95,7 +95,7 @@ def main():
             args.chooseHighestProbabilityIfAtLeast,
             True,
             softMaxTemperature=0.1,
-            numberOfGames=11,
+            numberOfGames=12,
             moveChoiceMode='SemiExhaustiveMiniMax',
             numberOfGamesForMoveEvaluation=0,  # ignored by SoftMax
             depthOfExhaustiveSearch=1,
@@ -137,6 +137,7 @@ def main():
                 args.numberOfProcesses
             )
         else:
+
             positionStatisticsList = generateMoveStatistics.GenerateMoveStatisticsWithMiniMax(
                 playerList,
                 authority,
@@ -149,7 +150,7 @@ def main():
         # Add end games
         logging.info("Generating end games...")
         keepNumberOfMovesBeforeEndGame = 3
-        numberOfEndGamePositions = 32
+        numberOfEndGamePositions = 64
         numberOfGamesForEndGameEvaluation = 15
         maximumNumberOfMovesForFullGameSimulation = args.maximumNumberOfMovesForInitialPositions
         maximumNumberOfMovesForEndGameSimulation = 10
@@ -170,60 +171,64 @@ def main():
         #logging.debug("After +=: len(positionStatisticsList) = {}".format(len(positionStatisticsList)))
 
         actionValuesLossSum = 0.0
-        minibatchIndicesList = utilities.MinibatchIndices(len(positionStatisticsList), args.minibatchSize)
+        numberOfSubEpochs = 100
+        for subEpochNdx in range(numberOfSubEpochs):
 
-        logging.info("Going through the minibatch")
-        for minibatchNdx in range(len(minibatchIndicesList)):
-            print('.', end='', flush=True)
-            minibatchPositions = []
-            minibatchTargetActionValues = []
-            minibatchLegalMovesMasks = []
-            for index in minibatchIndicesList[minibatchNdx]:
-                #logging.debug("len(positionStatisticsList[{}]) = {}".format(index, len(positionStatisticsList[index])))
-                minibatchPositions.append(positionStatisticsList[index][0])
-                averageValue = positionStatisticsList[index][1] #- \
-                                           #args.numberOfStandardDeviationsBelowAverageForValueEstimate * positionStatisticsList[index][2]
-                legalMovesMask = positionStatisticsList[index][3]
-                averageValue = averageValue * legalMovesMask.float()
-                minibatchTargetActionValues.append(averageValue)
-                minibatchLegalMovesMasks.append(legalMovesMask)
-            minibatchPositionsTensor = utilities.MinibatchTensor(minibatchPositions)
-            minibatchTargetActionValuesTensor = utilities.MinibatchTensor(minibatchTargetActionValues)
 
-            optimizer.zero_grad()
+            minibatchIndicesList = utilities.MinibatchIndices(len(positionStatisticsList), args.minibatchSize)
 
-            # Forward pass
-            outputActionValuesTensor = neuralNetwork(minibatchPositionsTensor)
-            # Mask the output action values with the legal moves mask
-            for maskNdx in range(len(minibatchLegalMovesMasks)):
-                outputActionValues = outputActionValuesTensor[maskNdx].clone()
-                legalMovesMask = minibatchLegalMovesMasks[maskNdx]
-                maskedOutputActionValues = outputActionValues * legalMovesMask.float()
-                outputActionValuesTensor[maskNdx] = maskedOutputActionValues
+            logging.info("Going through the minibatch")
+            for minibatchNdx in range(len(minibatchIndicesList)):
+                print('.', end='', flush=True)
+                minibatchPositions = []
+                minibatchTargetActionValues = []
+                minibatchLegalMovesMasks = []
+                for index in minibatchIndicesList[minibatchNdx]:
+                    #logging.debug("len(positionStatisticsList[{}]) = {}".format(index, len(positionStatisticsList[index])))
+                    minibatchPositions.append(positionStatisticsList[index][0])
+                    averageValue = positionStatisticsList[index][1] #- \
+                                               #args.numberOfStandardDeviationsBelowAverageForValueEstimate * positionStatisticsList[index][2]
+                    legalMovesMask = positionStatisticsList[index][3]
+                    averageValue = averageValue * legalMovesMask.float()
+                    minibatchTargetActionValues.append(averageValue)
+                    minibatchLegalMovesMasks.append(legalMovesMask)
+                minibatchPositionsTensor = utilities.MinibatchTensor(minibatchPositions)
+                minibatchTargetActionValuesTensor = utilities.MinibatchTensor(minibatchTargetActionValues)
 
-            # Calculate the error and backpropagate
-            # Create a tensor with the list of legal values mask
-            minibatchLegalMovesMasksTensor = torch.zeros(outputActionValuesTensor.shape)
-            for maskNdx in range(len(minibatchLegalMovesMasks)):
-                minibatchLegalMovesMasksTensor[maskNdx] = minibatchLegalMovesMasks[maskNdx]
+                optimizer.zero_grad()
 
-            standardDeviationOfLegalValues = utilities.StandardDeviationOfLegalValues(outputActionValuesTensor, minibatchLegalMovesMasksTensor)
-            logging.debug("standardDeviationOfLegalValues = {}".format(standardDeviationOfLegalValues))
-            actionValuesLoss = loss(outputActionValuesTensor, minibatchTargetActionValuesTensor) - standardDeviationAlpha * standardDeviationOfLegalValues
+                # Forward pass
+                outputActionValuesTensor = neuralNetwork(minibatchPositionsTensor)
+                # Mask the output action values with the legal moves mask
+                for maskNdx in range(len(minibatchLegalMovesMasks)):
+                    outputActionValues = outputActionValuesTensor[maskNdx].clone()
+                    legalMovesMask = minibatchLegalMovesMasks[maskNdx]
+                    maskedOutputActionValues = outputActionValues * legalMovesMask.float()
+                    outputActionValuesTensor[maskNdx] = maskedOutputActionValues
 
-            try:
-                actionValuesLoss.backward()
-                actionValuesLossSum += actionValuesLoss.item()
+                # Calculate the error and backpropagate
+                # Create a tensor with the list of legal values mask
+                minibatchLegalMovesMasksTensor = torch.zeros(outputActionValuesTensor.shape)
+                for maskNdx in range(len(minibatchLegalMovesMasks)):
+                    minibatchLegalMovesMasksTensor[maskNdx] = minibatchLegalMovesMasks[maskNdx]
 
-                # Move in the gradient descent direction
-                optimizer.step()
-            except Exception as exc:
-                msg = "Caught excetion: {}".format(exc)
-                print (msg)
-                logging.error(msg)
-                print('X', end='', flush=True)
+                standardDeviationOfLegalValues = utilities.StandardDeviationOfLegalValues(outputActionValuesTensor, minibatchLegalMovesMasksTensor)
+                #logging.debug("standardDeviationOfLegalValues = {}".format(standardDeviationOfLegalValues))
+                actionValuesLoss = loss(outputActionValuesTensor, minibatchTargetActionValuesTensor) - standardDeviationAlpha * standardDeviationOfLegalValues
 
-        averageActionValuesTrainingLoss = actionValuesLossSum / len(minibatchIndicesList)
+                try:
+                    actionValuesLoss.backward()
+                    actionValuesLossSum += actionValuesLoss.item()
+
+                    # Move in the gradient descent direction
+                    optimizer.step()
+                except Exception as exc:
+                    msg = "Caught excetion: {}".format(exc)
+                    print (msg)
+                    logging.error(msg)
+                    print('X', end='', flush=True)
+
+        averageActionValuesTrainingLoss = actionValuesLossSum / (len(minibatchIndicesList * numberOfSubEpochs))
         print(" * ")
         logging.info("Epoch {}: averageActionValuesTrainingLoss = {}".format(epoch, averageActionValuesTrainingLoss))
 
@@ -243,7 +248,7 @@ def main():
             monitoringSoftMaxTemperature = 0.1
         else:
             moveChoiceMode = 'SemiExhaustiveMiniMax'
-            numberOfGames = 11
+            numberOfGames = 12
             depthOfExhaustiveSearch = 1
             numberOfTopMovesToDevelop = 7
         (averageRewardAgainstRandomPlayer, winRate, drawRate, lossRate, losingGamePositionsListList) = \

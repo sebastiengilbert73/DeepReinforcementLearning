@@ -320,8 +320,8 @@ def main():
 
     authority = checkers.Authority()
     playerList = authority.PlayersList()
-    neuralNetwork = moveEvaluation.ConvolutionStack.Net()
-    neuralNetwork.Load("/home/sebastien/projects/DeepReinforcementLearning/outputs/Net_(6,1,8,8)_[(5,32),(5,32),(5,32)]_(4,1,8,8)_checkers_48.pth")
+    #neuralNetwork = moveEvaluation.ConvolutionStack.Net()
+    #neuralNetwork.Load("/home/sebastien/projects/DeepReinforcementLearning/outputs/Net_(6,1,8,8)_[(5,32),(5,32),(5,32)]_(4,1,8,8)_checkers_48.pth")
     keepNumberOfMovesBeforeEndGame = 3
     numberOfPositions = 3
     numberOfGamesForEvaluation = 5
@@ -333,7 +333,7 @@ def main():
     positionMovesStatistics = GenerateEndGameStatistics(
         playerList,
         authority,
-        neuralNetwork,
+        None, #neuralNetwork,
         keepNumberOfMovesBeforeEndGame,
         numberOfPositions,
         numberOfGamesForEvaluation,
