@@ -139,7 +139,13 @@ def main():
     print("Decoder.py main(): After learning: valuesList = {}".format(valuesList))
     print("Decoder.py main(): targetValues = {}".format(targetValues))
 
-    Predictor.SimulateAGame(randomForest, authority, startingPosition=None, nextPlayer=None, epsilon=0.1)
+    positionsList, winner = Predictor.SimulateAGame(randomForest, authority, startingPosition=None, nextPlayer=None, epsilon=0.1)
+    print ("positionsList = \n{}".format(positionsList))
+    print ("winner = {}".format(winner))
+
+    (numberOfWinsForPlayer0, numberOfWinsForPlayer1, numberOfDraws) = Predictor.SimulateMultipleGamesAndGetStatistics(
+        evaluator=randomForest, gameAuthority=authority, numberOfGames=30, startingPosition=None, nextPlayer=None, epsilon=0.1)
+    print ("(numberOfWinsForPlayer0, numberOfWinsForPlayer1, numberOfDraws) = {}".format((numberOfWinsForPlayer0, numberOfWinsForPlayer1, numberOfDraws)))
 
 if __name__ == '__main__':
     main()

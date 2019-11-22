@@ -7,6 +7,7 @@ import tictactoe
 import logging
 import autoencoder.position # autoencoder
 import Decoder
+import Predictor
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--disable-cuda', action='store_true', help='Disable CUDA')
@@ -21,7 +22,7 @@ parser.add_argument('--numberOfPositionsForValidation', help='The number of posi
 parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The depth of exhaustive search, when generating move statitics. Default: 1', default=1)
 parser.add_argument('--learningRateExponentialDecay', help='The learning rate exponential decay. Default: 0.99', type=float, default=0.99)
 parser.add_argument('--epsilon', help='Probability to do a random move while generating move statistics. Default: 0.1', type=float, default=0.1)
-
+parser.add_argument('--numberOfSimulations', help='For each starting position, the number of simulations to evaluate the position value. Default: 30', type=int, default=30)
 
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
@@ -32,6 +33,42 @@ def MinimumNumberOfMovesForInitialPositions(epoch):
     return 0
 
 
+def SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions,
+                        numberOfPositions):
+    selectedPositionsList = []
+    while len(selectedPositionsList) < numberOfPositions:
+        gamePositionsList, winner = Predictor.SimulateAGame(
+            evaluator=None, gameAuthority=authority, startingPosition=None, nextPlayer=None, epsilon=1.0) # With epsilon=1.0, the evaluator will never be called
+        if len(gamePositionsList) > minimumNumberOfMovesForInitialPositions:
+            if len(gamePositionsList) >= maximumNumberOfMovesForInitialPositions:
+                selectedPositionsList.append(gamePositionsList[maximumNumberOfMovesForInitialPositions - 1])
+            else:
+                selectedPositionsList.append(gamePositionsList[-1])
+    return selectedPositionsList
+
+def StartingPositionsTensor(startingPositionsList):
+    positionShape = startingPositionsList[0].shape
+    startingPositionsTensor = torch.zeros(len(startingPositionsList), positionShape[0], positionShape[1],
+                                       positionShape[2], positionShape[3])
+    for positionNdx in range(len(startingPositionsList)):
+        startingPositionsTensor[positionNdx] = startingPositionsList[positionNdx]
+    return startingPositionsTensor
+
+def ExpectedRewardsList(gameAuthority, evaluator, startingPositionsList, numberOfSimulations, nextPlayer, epsilon):
+    expectedRewardsList = []
+    for positionNdx in range(len(startingPositionsList)):
+        startingPosition = startingPositionsList[positionNdx]
+        expectedReward = Predictor.ExpectedReward(evaluator, gameAuthority, numberOfSimulations,
+                                                  startingPosition=startingPosition,
+                                                  nextPlayer=nextPlayer, epsilon=epsilon)
+        expectedRewardsList.append(expectedReward)
+    return expectedRewardsList
+
+def ExpectedRewardsTensor(expectedRewardsList):
+    expectedRewardsTensor = torch.zeros(len(expectedRewardsList))
+    for rewardNdx in range(len(expectedRewardsList)):
+        expectedRewardsTensor[rewardNdx] = expectedRewardsList[rewardNdx]
+    return expectedRewardsTensor
 
 def main():
     logging.info("learnTicTacToeWithDecoderRandomForest.py main()")
@@ -74,6 +111,36 @@ def main():
         minimumNumberOfMovesForInitialPositions = MinimumNumberOfMovesForInitialPositions(epoch)
         maximumNumberOfMovesForInitialPositions = args.maximumNumberOfMovesForInitialPositions
         logging.info("Generating positions...")
+        startingPositionsList = SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions,
+                                                    maximumNumberOfMovesForInitialPositions,
+                                                    args.numberOfPositionsForTraining)
+        startingPositionsTensor = StartingPositionsTensor(startingPositionsList)
+        logging.info("Evaluating expected reward for each starting position...")
+        expectedRewardsList = ExpectedRewardsList(authority, decoderRandomForest, startingPositionsList,
+                                                  args.numberOfSimulations, playerList[1], args.epsilon)
+        #print ("expectedRewardsList = {}".format(expectedRewardsList))
+        expectedRewardsTensor = ExpectedRewardsTensor(expectedRewardsList)
+
+        logging.info("Learning from the examples...")
+        decoderRandomForest.LearnFromMinibatch(startingPositionsTensor, expectedRewardsTensor)
+
+        # Test on validation positions
+        logging.info("Generating validation positions...")
+        validationStartingPositionsList = SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions,
+                                                    maximumNumberOfMovesForInitialPositions,
+                                                    args.numberOfPositionsForValidation)
+        validationStartingPositionsTensor = StartingPositionsTensor(validationStartingPositionsList)
+        logging.info("Evaluating expected reward for each validation starting position...")
+        validationExpectedRewardsList = ExpectedRewardsList(authority, decoderRandomForest, validationStartingPositionsList,
+                                                  args.numberOfSimulations, playerList[1], args.epsilon)
+        validationExpectedRewardsTensor = ExpectedRewardsTensor(validationExpectedRewardsList)
+
+        currentValidationPredictionList = decoderRandomForest.Value(validationStartingPositionsTensor)
+        currentValidationPredictionTensor = ExpectedRewardsTensor(currentValidationPredictionList)
+        validationMSE = torch.nn.functional.mse_loss(currentValidationPredictionTensor, validationExpectedRewardsTensor).item()
+        logging.info("validationMSE = {}".format(validationMSE))
+
+
 
 
 if __name__ == '__main__':
