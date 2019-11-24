@@ -155,8 +155,9 @@ def main():
 
     import tictactoe
     import pickle
+    import utilities
 
-    randomForest = Predictor.Load('/home/sebastien/projects/DeepReinforcementLearning/positionEvaluation/outputs/tictactoe_19.bin')
+    randomForest = Predictor.Load('/home/sebastien/projects/DeepReinforcementLearning/positionEvaluation/outputs/tictactoe_23.bin')
 
     print (randomForest.encodingBodyStructureSeq)
     authority = tictactoe.Authority()
@@ -177,6 +178,9 @@ def main():
     value = randomForest.Value(inputTensor.unsqueeze(0))
     print ("value = {}".format(value))
 
+    legalMoveTensorsList = utilities.LegalMoveTensorsList(authority, inputTensor, playersList[0])
+    print ("legalMoveTensorsList = {}".format(legalMoveTensorsList))
+
     """legalMoveToExpectedRewardDict = Predictor.LegalMoveToExpectedReward(
         randomForest, authority, inputTensor, playersList[0], numberOfGames=10, epsilon=0.1)
 
@@ -192,7 +196,7 @@ def main():
         randomForest, authority, 30
     )
     print ("(numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws) = ({}, {}, {})".format(numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws))
-    
+
 
 if __name__ == '__main__':
     main()

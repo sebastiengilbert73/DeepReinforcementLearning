@@ -226,6 +226,19 @@ def ChooseAMove(neuralNetwork, positionTensor, player, gameAuthority, chooseHigh
     chosenMoveArr[chosenCoordinates] = 1.0
     return torch.from_numpy(chosenMoveArr).float()
 
+def LegalMoveTensorsList(gameAuthority, positionTensor, nextPlayer):
+    moveTensorShape = gameAuthority.MoveTensorShape()
+    legalMovesMask = gameAuthority.LegalMovesMask(positionTensor, nextPlayer)
+    nonZeroCoordsTensor = legalMovesMask.nonzero()
+    legalMoveTensorsList = []
+    for candidateMoveNdx in range(nonZeroCoordsTensor.shape[0]):
+        candidateMoveTensor = torch.zeros(moveTensorShape)
+        nonZeroCoords = nonZeroCoordsTensor[candidateMoveNdx]
+        candidateMoveTensor[
+            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 1.0
+        legalMoveTensorsList.append(candidateMoveTensor)
+    return legalMoveTensorsList
+
 if __name__ == '__main__':
     import checkers
 
