@@ -19,10 +19,12 @@ parser.add_argument('--startWithNeuralNetwork', help='The starting neural networ
 parser.add_argument('--maximumNumberOfMovesForInitialPositions', help='The maximum number of moves in the initial positions. Default: 7', type=int, default=7)
 parser.add_argument('--numberOfPositionsForTraining', help='The number of positions for training per epoch. Default: 128', type=int, default=128)
 parser.add_argument('--numberOfPositionsForValidation', help='The number of positions for validation per epoch. Default: 128', type=int, default=128)
-parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The depth of exhaustive search, when generating move statitics. Default: 1', default=1)
-parser.add_argument('--learningRateExponentialDecay', help='The learning rate exponential decay. Default: 0.99', type=float, default=0.99)
+#parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The depth of exhaustive search, when generating move statitics. Default: 1', default=1)
+#parser.add_argument('--learningRateExponentialDecay', help='The learning rate exponential decay. Default: 0.99', type=float, default=0.99)
 parser.add_argument('--epsilon', help='Probability to do a random move while generating move statistics. Default: 0.1', type=float, default=0.1)
 parser.add_argument('--numberOfSimulations', help='For each starting position, the number of simulations to evaluate the position value. Default: 30', type=int, default=30)
+parser.add_argument('--maximumNumberOfTrees', help='The maximum number of trees in the forest. Default: 50', type=int, default=50)
+parser.add_argument('--treesMaximumDepth', help='The maximum depth of each tree. Default: 6', type=int, default=6)
 
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
@@ -82,9 +84,9 @@ def main():
         raise NotImplementedError("main(): Start with a neural network is not implemented...")
     else:
         autoencoderNet = autoencoder.position.Net()
-        autoencoderNet.Load('/home/segilber/projects/DeepReinforcementLearning/autoencoder/outputs/AutoencoderNet_(2,1,3,3)_[(3,16,1),(3,32,1)]_20_tictactoeAutoencoder_1000.pth')
+        autoencoderNet.Load('/home/sebastien/projects/DeepReinforcementLearning/autoencoder/outputs/AutoencoderNet_(2,1,3,3)_[(3,16,1),(3,32,1)]_20_tictactoeAutoencoder_1000.pth')
         decoderRandomForest = Decoder.BuildARandomForestDecoderFromAnAutoencoder(
-            autoencoderNet, maximumNumberOfTrees=5, treesMaximumDepth=6)
+            autoencoderNet, args.maximumNumberOfTrees, args.treesMaximumDepth)
 
     print ("main(): decoderRandomForest.encodingBodyStructureSeq = {}".format(decoderRandomForest.encodingBodyStructureSeq))
 
@@ -103,7 +105,7 @@ def main():
     epochLossFile = open(os.path.join(args.outputDirectory, 'epochLoss.csv'), "w",
                          buffering=1)  # Flush the buffer at each line
     epochLossFile.write(
-        "epoch,averageTrainError,averageValidationError,averageRewardAgainstRandomPlayer,winRate,drawRate,lossRate\n")
+        "epoch,trainingMSE,validationMSE,averageRewardAgainstRandomPlayer,winRate,drawRate,lossRate\n")
 
     for epoch in range(1, args.numberOfEpochs + 1):
         logging.info ("Epoch {}".format(epoch))
@@ -124,6 +126,11 @@ def main():
         logging.info("Learning from the examples...")
         decoderRandomForest.LearnFromMinibatch(startingPositionsTensor, expectedRewardsTensor)
 
+        afterLearningTrainingPredictionsList = decoderRandomForest.Value(startingPositionsTensor)
+        afterLearningTrainingPredictionsTensor = ExpectedRewardsTensor(afterLearningTrainingPredictionsList)
+        trainingMSE = torch.nn.functional.mse_loss(afterLearningTrainingPredictionsTensor, expectedRewardsTensor).item()
+        logging.info("trainingMSE = {}".format(trainingMSE))
+
         # Test on validation positions
         logging.info("Generating validation positions...")
         validationStartingPositionsList = SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions,
@@ -139,6 +146,21 @@ def main():
         currentValidationPredictionTensor = ExpectedRewardsTensor(currentValidationPredictionList)
         validationMSE = torch.nn.functional.mse_loss(currentValidationPredictionTensor, validationExpectedRewardsTensor).item()
         logging.info("validationMSE = {}".format(validationMSE))
+
+        # Play against a random player
+        (numberOfWinsForEvaluator, numberOfWinsForRandomPlayer,
+         numberOfDraws) = Predictor.SimulateGamesAgainstARandomPlayer(
+            decoderRandomForest, authority, 30
+        )
+        winRate = numberOfWinsForEvaluator / (numberOfWinsForEvaluator + numberOfWinsForRandomPlayer + numberOfDraws)
+        lossRate = numberOfWinsForRandomPlayer / (numberOfWinsForEvaluator + numberOfWinsForRandomPlayer + numberOfDraws)
+        drawRate = numberOfDraws / (numberOfWinsForEvaluator + numberOfWinsForRandomPlayer + numberOfDraws)
+        logging.info("Against a random player, winRate = {}; drawRate = {}; lossRate = {}".format(winRate, drawRate, lossRate))
+
+        epochLossFile.write(
+            str(epoch) + ',' + str(trainingMSE) + ',' + str(validationMSE) + ',' + str(winRate - lossRate) + ',' + str(winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
+        filepath = os.path.join(args.outputDirectory, 'tictactoe_' + str(epoch) + '.bin')
+        decoderRandomForest.Save(filepath)
 
 
 

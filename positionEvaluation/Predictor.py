@@ -2,6 +2,7 @@ import abc
 import numpy
 import utilities
 import torch
+import pickle
 
 class Evaluator(abc.ABC):
     """
@@ -18,7 +19,17 @@ class Evaluator(abc.ABC):
     def LearnFromMinibatch(self, minibatchFeaturesTensor, minibatchTargetValues):
         pass
 
+    def Save(self, filepath):
+        binary_file = open(filepath, mode='wb')
+        pickle.dump(self, binary_file)
+        binary_file.close()
 
+
+def Load(filepath):
+    pickle_in = open(filepath, 'rb')
+    evaluator = pickle.load(pickle_in)
+    pickle_in.close()
+    return evaluator
 
 def SimulateAGame(evaluator, gameAuthority, startingPosition=None, nextPlayer=None, epsilon=0.1):
     playersList = gameAuthority.PlayersList()
@@ -104,3 +115,91 @@ def ExpectedReward(evaluator, gameAuthority, numberOfGames, startingPosition=Non
     (numberOfWinsForPlayer0, numberOfWinsForPlayer1, numberOfDraws) = SimulateMultipleGamesAndGetStatistics(
         evaluator, gameAuthority, numberOfGames, startingPosition, nextPlayer, epsilon)
     return (1.0 * numberOfWinsForPlayer0 -1.0 * numberOfWinsForPlayer1)/numberOfGames
+
+def SimulateGamesAgainstARandomPlayer(evaluator, gameAuthority, numberOfGames):
+    playersList = gameAuthority.PlayersList()
+    moveTensorShape = gameAuthority.MoveTensorShape()
+    numberOfWinsForEvaluator = 0
+    numberOfWinsForRandomPlayer = 0
+    numberOfDraws = 0
+
+    for gameNdx in range(numberOfGames):
+        evaluatorPlayer = playersList[gameNdx % 2]
+
+        winner = None
+        currentPosition = gameAuthority.InitialPosition()
+        moveNdx = 0
+        while winner is None:
+            nextPlayer = playersList[moveNdx % 2]
+            chosenMoveTensor = None
+            if nextPlayer == evaluatorPlayer:
+                if nextPlayer == playersList[1]:
+                    currentPosition = gameAuthority.SwapPositions(currentPosition, playersList[0], playersList[1])
+
+                legalMovesMask = gameAuthority.LegalMovesMask(currentPosition, playersList[0])
+                nonZeroCoordsTensor = legalMovesMask.nonzero()
+                highestValue = -1.0E9
+                for candidateMoveNdx in range(nonZeroCoordsTensor.shape[0]):
+                    candidateMoveTensor = torch.zeros(moveTensorShape)
+                    nonZeroCoords = nonZeroCoordsTensor[candidateMoveNdx]
+                    candidateMoveTensor[
+                        nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 1.0
+                    candidatePositionAfterMove, candidateWinner = gameAuthority.Move(currentPosition,
+                                                                                     playersList[0],
+                                                                                     candidateMoveTensor)
+                    candidatePositionValue = evaluator.Value(candidatePositionAfterMove.unsqueeze(0))[0]
+                    if candidateWinner == playersList[0]:
+                        candidatePositionValue = 1.0
+                    elif candidateWinner == playersList[1]:
+                        candidatePositionValue = -1.0
+                    elif candidateWinner == 'draw':
+                        candidatePositionValue = 0
+
+                    if candidatePositionValue > highestValue:
+                        highestValue = candidatePositionValue
+                        chosenMoveTensor = candidateMoveTensor
+
+                currentPosition, winner = gameAuthority.Move(currentPosition, playersList[0], chosenMoveTensor)
+                if nextPlayer == playersList[1]:  # De-swap, reverse the winner
+                    currentPosition = gameAuthority.SwapPositions(currentPosition, playersList[0], playersList[1])
+                    if winner == playersList[0]:
+                        winner = playersList[1]
+                    elif winner == playersList[1]:
+                        winner = playersList[0]
+
+            else: # Random player's turn
+                chosenMoveTensor = utilities.ChooseARandomMove(currentPosition, nextPlayer, gameAuthority)
+                currentPosition, winner = gameAuthority.Move(currentPosition, playersList[0], chosenMoveTensor)
+
+            moveNdx += 1
+        if winner == evaluatorPlayer:
+            numberOfWinsForEvaluator += 1
+        elif winner == 'draw':
+            numberOfDraws += 1
+        else:
+            numberOfWinsForRandomPlayer += 1
+    return (numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws)
+
+def LegalMoveToExpectedReward(evaluator, gameAuthority, currentPosition, nextPlayer, numberOfGames, epsilon):
+    legalMovesMask = gameAuthority.LegalMovesMask(currentPosition, nextPlayer)
+    nonZeroCoordsTensor = legalMovesMask.nonzero()
+    moveTensorShape = gameAuthority.MoveTensorShape()
+    playersList = gameAuthority.PlayersList()
+    legalMoveToExpectedRewardDict = {}
+
+    for candidateMoveNdx in range(nonZeroCoordsTensor.shape[0]):
+        candidateMoveTensor = torch.zeros(moveTensorShape)
+        nonZeroCoords = nonZeroCoordsTensor[candidateMoveNdx]
+        candidateMoveTensor[
+            nonZeroCoords[0], nonZeroCoords[1], nonZeroCoords[2], nonZeroCoords[3]] = 1.0
+        candidatePositionAfterMove, candidateWinner = gameAuthority.Move(currentPosition,
+                                                                         nextPlayer,
+                                                                         candidateMoveTensor)
+        if nextPlayer == playersList[0]:
+            nextPlayer = playersList[1]
+        else:
+            nextPlayer = playersList[0]
+        expectedReward = ExpectedReward(evaluator, gameAuthority, numberOfGames, startingPosition=candidatePositionAfterMove,
+                                          nextPlayer=nextPlayer, epsilon=epsilon)
+        legalMoveToExpectedRewardDict[candidateMoveTensor] = expectedReward
+    return legalMoveToExpectedRewardDict
