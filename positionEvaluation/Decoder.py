@@ -181,6 +181,14 @@ def main():
     legalMoveTensorsList = utilities.LegalMoveTensorsList(authority, inputTensor, playersList[0])
     print ("legalMoveTensorsList = {}".format(legalMoveTensorsList))
 
+    for gameNdx in range(10):
+        gamePositionsList, winner = Predictor.SimulateAGame(
+            evaluator=None, gameAuthority=authority, startingPosition=None, nextPlayer=None, epsilon=1.0)
+        for gamePosition in gamePositionsList:
+            authority.Display(gamePosition)
+            print('')
+
+
     """legalMoveToExpectedRewardDict = Predictor.LegalMoveToExpectedReward(
         randomForest, authority, inputTensor, playersList[0], numberOfGames=10, epsilon=0.1)
 
@@ -192,11 +200,11 @@ def main():
     print ("winner = {}".format(winner))
     """
 
-    (numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws) = Predictor.SimulateGamesAgainstARandomPlayer(
+    """(numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws) = Predictor.SimulateGamesAgainstARandomPlayer(
         randomForest, authority, 30
     )
     print ("(numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws) = ({}, {}, {})".format(numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws))
-
+    """
 
 if __name__ == '__main__':
     main()

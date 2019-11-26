@@ -24,10 +24,12 @@ parser.add_argument('--numberOfPositionsForValidation', help='The number of posi
 parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The depth of exhaustive search, when generating move statitics. Default: 1', default=1)
 parser.add_argument('--learningRateExponentialDecay', help='The learning rate exponential decay. Default: 0.99', type=float, default=0.99)
 parser.add_argument('--positiveCaseWeight', help='For the loss BCEWithLogitsLoss, the weight of positive cases. Default: 3.0', type=float, default=3.0)
+parser.add_argument('--numberOfLatentVariables', help='The number of latent variables for the autoencoder. Default: 20', type=int, default=21)
 
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
 
+print ("args.numberOfLatentVariables = {}".format(args.numberOfLatentVariables))
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(message)s')
 
 def MinimumNumberOfMovesForInitialPositions(epoch):
@@ -77,7 +79,7 @@ def main():
         neuralNetwork = position.Net(
             positionTensorShape,
             bodyStructure=[(3, 16, 1), (3, 32, 1)],#, (3, 64, 2)],#, (5, 16), (5, 16)],
-            numberOfLatentVariables=20
+            numberOfLatentVariables=args.numberOfLatentVariables
         )
 
     # Create the optimizer
