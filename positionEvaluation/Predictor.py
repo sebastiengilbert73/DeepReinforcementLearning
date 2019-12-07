@@ -116,12 +116,13 @@ def ExpectedReward(evaluator, gameAuthority, numberOfGames, startingPosition=Non
         evaluator, gameAuthority, numberOfGames, startingPosition, nextPlayer, epsilon)
     return (1.0 * numberOfWinsForPlayer0 -1.0 * numberOfWinsForPlayer1)/numberOfGames
 
-def SimulateGamesAgainstARandomPlayer(evaluator, gameAuthority, numberOfGames):
+def SimulateGamesAgainstARandomPlayer(evaluator, gameAuthority, numberOfGames, gameToRewardDict=None):
     playersList = gameAuthority.PlayersList()
     moveTensorShape = gameAuthority.MoveTensorShape()
     numberOfWinsForEvaluator = 0
     numberOfWinsForRandomPlayer = 0
     numberOfDraws = 0
+    playedGameToRewardDict = {}
 
     for gameNdx in range(numberOfGames):
         evaluatorPlayer = playersList[gameNdx % 2]
@@ -129,6 +130,8 @@ def SimulateGamesAgainstARandomPlayer(evaluator, gameAuthority, numberOfGames):
         winner = None
         currentPosition = gameAuthority.InitialPosition()
         moveNdx = 0
+        positionsList = []
+        positionsList.append(currentPosition)
         while winner is None:
             nextPlayer = playersList[moveNdx % 2]
             chosenMoveTensor = None
@@ -166,19 +169,29 @@ def SimulateGamesAgainstARandomPlayer(evaluator, gameAuthority, numberOfGames):
                         winner = playersList[1]
                     elif winner == playersList[1]:
                         winner = playersList[0]
+                positionsList.append(currentPosition)
 
             else: # Random player's turn
                 chosenMoveTensor = utilities.ChooseARandomMove(currentPosition, nextPlayer, gameAuthority)
-                currentPosition, winner = gameAuthority.Move(currentPosition, playersList[0], chosenMoveTensor)
+                currentPosition, winner = gameAuthority.Move(currentPosition, nextPlayer, chosenMoveTensor)
+                positionsList.append(currentPosition)
 
             moveNdx += 1
         if winner == evaluatorPlayer:
             numberOfWinsForEvaluator += 1
+            playedGameToRewardDict[tuple(positionsList)] = 1.0
         elif winner == 'draw':
             numberOfDraws += 1
+            playedGameToRewardDict[tuple(positionsList)] = 0.0
         else:
             numberOfWinsForRandomPlayer += 1
-    return (numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws)
+            playedGameToRewardDict[tuple(positionsList)] = -1.0
+
+    if gameToRewardDict is not None:
+        gameToRewardDict = playedGameToRewardDict
+        return (numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws, gameToRewardDict)
+    else:
+        return (numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws)
 
 def LegalMoveToExpectedReward(evaluator, gameAuthority, currentPosition, nextPlayer, numberOfGames, epsilon):
     legalMovesMask = gameAuthority.LegalMovesMask(currentPosition, nextPlayer)
@@ -203,3 +216,17 @@ def LegalMoveToExpectedReward(evaluator, gameAuthority, currentPosition, nextPla
                                           nextPlayer=nextPlayer, epsilon=epsilon)
         legalMoveToExpectedRewardDict[candidateMoveTensor] = expectedReward
     return legalMoveToExpectedRewardDict
+
+def SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions,
+                        numberOfPositions):
+    selectedPositionsList = []
+    while len(selectedPositionsList) < numberOfPositions:
+        gamePositionsList, winner = SimulateAGame(
+            evaluator=None, gameAuthority=authority, startingPosition=None, nextPlayer=None, epsilon=1.0) # With epsilon=1.0, the evaluator will never be called
+        if len(gamePositionsList) >= minimumNumberOfMovesForInitialPositions:
+            maxNdx = min(maximumNumberOfMovesForInitialPositions - 1, len(gamePositionsList) - 2) # The last index cannot be the last position, since the game is over
+            if maxNdx < 0:
+                maxNdx = 0
+            selectedNdx = numpy.random.randint(maxNdx + 1) # maxNdx can be selected: {0, 1, 2, ..., maxNdx}
+            selectedPositionsList.append(gamePositionsList[selectedNdx])
+    return selectedPositionsList
