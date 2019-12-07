@@ -78,7 +78,7 @@ def main():
     else:
         neuralNetwork = position.Net(
             positionTensorShape,
-            bodyStructure=[(3, 16, 1), (3, 32, 1)],#, (3, 64, 2)],#, (5, 16), (5, 16)],
+            bodyStructure=[(3, 32, 1), (3, 32, 1), (3, 32, 1)],#, (3, 64, 2)],#, (5, 16), (5, 16)],
             numberOfLatentVariables=args.numberOfLatentVariables
         )
 
