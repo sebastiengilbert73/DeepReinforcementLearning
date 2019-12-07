@@ -35,19 +35,6 @@ def MinimumNumberOfMovesForInitialPositions(epoch):
     return 0
 
 
-def SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions,
-                        numberOfPositions):
-    selectedPositionsList = []
-    while len(selectedPositionsList) < numberOfPositions:
-        gamePositionsList, winner = Predictor.SimulateAGame(
-            evaluator=None, gameAuthority=authority, startingPosition=None, nextPlayer=None, epsilon=1.0) # With epsilon=1.0, the evaluator will never be called
-        if len(gamePositionsList) > minimumNumberOfMovesForInitialPositions:
-            if len(gamePositionsList) >= maximumNumberOfMovesForInitialPositions:
-                selectedPositionsList.append(gamePositionsList[maximumNumberOfMovesForInitialPositions - 1])
-            else:
-                selectedPositionsList.append(gamePositionsList[-1])
-    return selectedPositionsList
-
 def StartingPositionsTensor(startingPositionsList):
     positionShape = startingPositionsList[0].shape
     startingPositionsTensor = torch.zeros(len(startingPositionsList), positionShape[0], positionShape[1],
@@ -84,7 +71,7 @@ def main():
         raise NotImplementedError("main(): Start with a neural network is not implemented...")
     else:
         autoencoderNet = autoencoder.position.Net()
-        autoencoderNet.Load('/home/sebastien/projects/DeepReinforcementLearning/autoencoder/outputs/AutoencoderNet_(2,1,3,3)_[(3,16,1),(3,32,1)]_40_tictactoeAutoencoder_1000.pth')
+        autoencoderNet.Load('/home/sebastien/projects/DeepReinforcementLearning/autoencoder/outputs/AutoencoderNet_(2,1,3,3)_[(3,32,1),(3,32,1),(3,32,1)]_20_tictactoeAutoencoder_232.pth')
         decoderRandomForest = Decoder.BuildARandomForestDecoderFromAnAutoencoder(
             autoencoderNet, args.maximumNumberOfTrees, args.treesMaximumDepth)
 
@@ -107,13 +94,28 @@ def main():
     epochLossFile.write(
         "epoch,trainingMSE,validationMSE,averageRewardAgainstRandomPlayer,winRate,drawRate,lossRate\n")
 
+    # First game with a random player, before any training
+    (numberOfWinsForEvaluator, numberOfWinsForRandomPlayer,
+     numberOfDraws) = Predictor.SimulateGamesAgainstARandomPlayer(
+        decoderRandomForest, authority, 30
+    )
+    winRate = numberOfWinsForEvaluator / (numberOfWinsForEvaluator + numberOfWinsForRandomPlayer + numberOfDraws)
+    lossRate = numberOfWinsForRandomPlayer / (numberOfWinsForEvaluator + numberOfWinsForRandomPlayer + numberOfDraws)
+    drawRate = numberOfDraws / (numberOfWinsForEvaluator + numberOfWinsForRandomPlayer + numberOfDraws)
+    logging.info(
+        "Against a random player, winRate = {}; drawRate = {}; lossRate = {}".format(winRate, drawRate, lossRate))
+
+    epochLossFile.write(
+        '0' + ',' + '-' + ',' + '-' + ',' + str(winRate - lossRate) + ',' + str(
+            winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
+
     for epoch in range(1, args.numberOfEpochs + 1):
         logging.info ("Epoch {}".format(epoch))
         # Generate positions
         minimumNumberOfMovesForInitialPositions = MinimumNumberOfMovesForInitialPositions(epoch)
         maximumNumberOfMovesForInitialPositions = args.maximumNumberOfMovesForInitialPositions
         logging.info("Generating positions...")
-        startingPositionsList = SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions,
+        startingPositionsList = Predictor.SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions,
                                                     maximumNumberOfMovesForInitialPositions,
                                                     args.numberOfPositionsForTraining)
         startingPositionsTensor = StartingPositionsTensor(startingPositionsList)
@@ -133,7 +135,7 @@ def main():
 
         # Test on validation positions
         logging.info("Generating validation positions...")
-        validationStartingPositionsList = SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions,
+        validationStartingPositionsList = Predictor.SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions,
                                                     maximumNumberOfMovesForInitialPositions,
                                                     args.numberOfPositionsForValidation)
         validationStartingPositionsTensor = StartingPositionsTensor(validationStartingPositionsList)
