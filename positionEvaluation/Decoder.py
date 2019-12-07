@@ -2,7 +2,8 @@ import Predictor
 import autoencoder.position
 import torch
 from sklearn.tree import DecisionTreeRegressor
-from statistics import mean
+from statistics import mean, median
+import numpy
 
 class RandomForest(Predictor.Evaluator):
     def __init__(self,
@@ -65,7 +66,7 @@ class RandomForest(Predictor.Evaluator):
         treeValuesList = []
         for exampleNdx in range(minibatchSize):
             if len(self.treesList) == 0: # There is no tree: return a dummy value for each example
-                treeValuesList.append(0.0)
+                treeValuesList.append(-0.05 + 0.1 * numpy.random.uniform())
             else:
                 featuresTensor = latentVariablesTensor[exampleNdx]
                 predictionsList = []
@@ -76,8 +77,9 @@ class RandomForest(Predictor.Evaluator):
                     #print ("Value(): prediction = {}".format(prediction))
                     predictionsList.append(prediction)
                 #print ("Value(): predictionsList = {}".format(predictionsList))
-                average = mean(predictionsList)
-                treeValuesList.append(average)
+                #average = mean(predictionsList)
+                med = median(predictionsList)
+                treeValuesList.append(med)
         return treeValuesList
 
     def LearnFromMinibatch(self, minibatchFeaturesTensor, minibatchTargetValues):
@@ -93,7 +95,7 @@ class RandomForest(Predictor.Evaluator):
         latentVariablesTensor = self.LatentVariables(minibatchFeaturesTensor)
 
         while len(self.treesList) >= self.maximumNumberOfTrees: # Remove a new tree
-            treeErrorSumsList = []
+            """treeErrorSumsList = []
             for treeNdx in range(len(self.treesList)):
                 treeErrorSum = 0
                 for exampleNdx in range(minibatchSize):
@@ -111,6 +113,8 @@ class RandomForest(Predictor.Evaluator):
                     worstTreeNdx = treeNdx
             # Remove the worst tree
             del(self.treesList[worstTreeNdx])
+            """
+            self.treesList.pop(0) # Remove the 1st (i.e. the oldest) tree
 
         tree = DecisionTreeRegressor()
         tree.fit(latentVariablesTensor.detach().numpy(), minibatchTargetValues.detach().numpy())
