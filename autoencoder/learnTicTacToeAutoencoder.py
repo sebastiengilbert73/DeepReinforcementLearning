@@ -43,20 +43,22 @@ def GenerateRandomPositions(
         maximumNumberOfMoves
         ):
     positionsList = []
-    for positionNdx in range(numberOfPositions):
-        maximumNumberOfMovesForThisSimulation = numpy.random.randint(minimumNumberOfMoves,
-            maximumNumberOfMoves)
+    while len(positionsList) < numberOfPositions:
+        #maximumNumberOfMovesForThisSimulation = numpy.random.randint(minimumNumberOfMoves,
+        #    maximumNumberOfMoves)
         gamePositionsList, winner = expectedMoveValues.SimulateAGame(
             playerList,
             authority=authority,
             neuralNetwork=None,
             softMaxTemperatureForSelfPlayEvaluation=1.0,  # Will be ignored
             epsilon=0.1,
-            maximumNumberOfMoves=maximumNumberOfMovesForThisSimulation,
+            maximumNumberOfMoves=maximumNumberOfMoves,#ForThisSimulation,
             startingPosition=None,
             opponentPlaysRandomly=True
         )
-        positionsList.append(gamePositionsList[-1])  # Keep the last position
+        if len(gamePositionsList) >= minimumNumberOfMoves:
+            selectedNdx = numpy.random.randint(len(gamePositionsList))
+            positionsList.append(gamePositionsList[selectedNdx])  # Keep the selected position
     return positionsList
 
 def main():
@@ -78,8 +80,9 @@ def main():
     else:
         neuralNetwork = position.Net(
             positionTensorShape,
-            bodyStructure=[(3, 32, 1), (3, 32, 1), (3, 32, 1)],#, (3, 64, 2)],#, (5, 16), (5, 16)],
-            numberOfLatentVariables=args.numberOfLatentVariables
+            bodyStructure=[(3, 32, 1)],#, (3, 64, 2)],#, (5, 16), (5, 16)],
+            numberOfLatentVariables=args.numberOfLatentVariables,
+            zeroPadding=False
         )
 
     # Create the optimizer

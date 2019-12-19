@@ -9,9 +9,10 @@ import sys
 
 class Net(torch.nn.Module):
     def __init__(self,
-                 positionTensorShape=(1, 1, 1, 1), # Both position tensor size must be (C, D, H, W)
+                 positionTensorShape=(1, 1, 1, 1), # The position tensor size must be (C, D, H, W)
                  bodyStructure=[(3, 32, 2), (3, 64, 2)], # (kernelSize, numberOfChannels, stride)
                  numberOfLatentVariables=100,
+                 zeroPadding=True
                  ):
         super(Net, self).__init__()
         if len(positionTensorShape) != 4:
@@ -39,31 +40,47 @@ class Net(torch.nn.Module):
             if len(kernelDimensionNumberPair) == 3:
                 stride = kernelDimensionNumberPair[2]
 
-            if stride == 1:
-                self.layerNameToTensorPhysicalShapeDict[layerName] = previousLayerPhysicalShape
+            #convErosion = 0
+            if zeroPadding:
+                convErosion = 0
             else:
-                self.layerNameToTensorPhysicalShapeDict[layerName] = ( max((previousLayerPhysicalShape[0] + 1)//stride, 1),
-                                                                   max((previousLayerPhysicalShape[1] + 1)//stride, 1),
-                                                                   max((previousLayerPhysicalShape[2] + 1)//stride, 1))
+                convErosion = kernelDimensionNumberPair[0] - 1
+            #print ("Net.__init__(): convErosion = {}".format(convErosion))
+            if stride == 1:
+                self.layerNameToTensorPhysicalShapeDict[layerName] = (max(previousLayerPhysicalShape[0] - convErosion, 1),
+                                                                      max(previousLayerPhysicalShape[1] - convErosion, 1),
+                                                                      max(previousLayerPhysicalShape[2] - convErosion, 1))
+            else:
+                self.layerNameToTensorPhysicalShapeDict[layerName] = ( max((previousLayerPhysicalShape[0] - convErosion + 1)//stride, 1),
+                                                                   max((previousLayerPhysicalShape[1] - convErosion + 1)//stride, 1),
+                                                                   max((previousLayerPhysicalShape[2] - convErosion + 1)//stride, 1))
             #print ("self.layerNameToTensorPhysicalShapeDict[{}] = {}".format(layerName, self.layerNameToTensorPhysicalShapeDict[layerName]))
 
-            previousLayerPhysicalShape = self.layerNameToTensorPhysicalShapeDict[layerName]
+
+            kernelDimension = ( min(kernelDimensionNumberPair[0], previousLayerPhysicalShape[0]),
+                                min(kernelDimensionNumberPair[0], previousLayerPhysicalShape[1]),
+                                min(kernelDimensionNumberPair[0], previousLayerPhysicalShape[2]))
             bodyStructureDict[layerName] = ConvolutionLayer(numberOfInputChannels,
-                                                                 kernelDimensionNumberPair[0],
+                                                                 kernelDimension,
                                                                  kernelDimensionNumberPair[1],
                                                                  stride,
-                                                                 dilation=1)
+                                                                 dilation=1,
+                                                                 zeroPadding=zeroPadding)
             self.encodingLayerNames.append(layerName)
             numberOfInputChannels = kernelDimensionNumberPair[1]
+            previousLayerPhysicalShape = self.layerNameToTensorPhysicalShapeDict[layerName]
+        #print ("Net.__init__(): bodyStructureDict = {}".format(bodyStructureDict))
+        #print("Net.__init__(): previousLayerPhysicalShape = {}".format(previousLayerPhysicalShape))
         self.bodyStructureSeq = torch.nn.Sequential(bodyStructureDict)
         self.bodyActivationNumberOfEntries = bodyStructure[numberOfLayers - 1][1] * \
                                              previousLayerPhysicalShape[0] * previousLayerPhysicalShape[1] * previousLayerPhysicalShape[2]
+        #print("Net.__init__(): self.bodyActivationNumberOfEntries = {}".format(self.bodyActivationNumberOfEntries))
         self.fullyConnectedLayer = torch.nn.Linear(self.bodyActivationNumberOfEntries,
                                                    numberOfLatentVariables)
         self.decodingFullyConnectedLayer = torch.nn.Linear(numberOfLatentVariables, self.bodyActivationNumberOfEntries)
         self.ReLU = torch.nn.ReLU()
 
-        # Decoder: 2 layers with an intermediate number of nejurons given by sqrt(N1 * N2)
+        # Decoder: 2 layers with an intermediate number of neurons given by sqrt(N1 * N2)
         intermediateNumberOfNeurons = int (math.sqrt(self.bodyActivationNumberOfEntries * self.positionTensorShape[0] * \
                                                 self.positionTensorShape[1] * self.positionTensorShape[2] * \
                                                 self.positionTensorShape[3]) )
@@ -148,12 +165,16 @@ class Net(torch.nn.Module):
         self.decoding = torch.nn.Sequential(decodingDict)
     """
 
-def ConvolutionLayer(inputNumberOfChannels, kernelDimension, numberOfOutputChannels, stride=1, dilation=1):
+def ConvolutionLayer(inputNumberOfChannels, kernelDimension, numberOfOutputChannels, stride=1, dilation=1, zeroPadding=True):
+    if zeroPadding:
+        padding = int(kernelDimension/2)
+    else:
+        padding = 0
     return torch.nn.Sequential(
         torch.nn.Conv3d(in_channels=inputNumberOfChannels,
                         out_channels=numberOfOutputChannels,
                         kernel_size=kernelDimension,
-                        padding=int(kernelDimension/2),
+                        padding=padding,
                         stride=stride,
                         dilation=dilation),
         torch.nn.ReLU())
