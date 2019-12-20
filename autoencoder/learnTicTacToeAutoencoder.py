@@ -78,9 +78,8 @@ def main():
                 p.requires_grad = False
 
     else:
-        neuralNetwork = position.Net(
-            positionTensorShape,
-            bodyStructure=[(3, 32, 1)],#, (3, 64, 2)],#, (5, 16), (5, 16)],
+        neuralNetwork = position.Net(    positionTensorShape,
+            bodyStructure=[(3, 64, 1)],#, (3, 64, 2)],#, (5, 16), (5, 16)],
             numberOfLatentVariables=args.numberOfLatentVariables,
             zeroPadding=False
         )
