@@ -20,6 +20,7 @@ class Net(torch.nn.Module):
         self.positionTensorShape = positionTensorShape
         self.bodyStructureList = bodyStructure
         self.numberOfLatentVariables = numberOfLatentVariables
+        self.zeroPadding = zeroPadding
 
         numberOfLayers = len(bodyStructure)
         if numberOfLayers == 0:
@@ -112,6 +113,7 @@ class Net(torch.nn.Module):
     def Save(self, directory, filenameSuffix):
         filename = 'AutoencoderNet_' + str(self.positionTensorShape) + '_' + \
                                 str(self.bodyStructureList) + '_' + str(self.numberOfLatentVariables) + '_' + \
+                                ('zeroPadding_' if self.zeroPadding else 'noZeroPadding_') + \
                                 filenameSuffix + '.pth'
         # Remove spaces
         filename = filename.replace(' ', '')
@@ -122,12 +124,15 @@ class Net(torch.nn.Module):
         filename = os.path.basename(filepath)
         # Tokenize the filename with '_'
         tokens = filename.split('_')
-        if len(tokens) < 5:
-            raise ValueError("Net.Load(): The number of tokens of {} is less than 5 ({})".format(filename, len(tokens)))
+        if len(tokens) < 6:
+            raise ValueError("Net.Load(): The number of tokens of {} is less than 6 ({})".format(filename, len(tokens)))
         positionTensorShape = ast.literal_eval(tokens[1])
         bodyStructureList = ast.literal_eval(tokens[2])
         numberOfLatentVariables = int(tokens[3])
-        self.__init__(positionTensorShape, bodyStructureList, numberOfLatentVariables)
+        #print("Net.Load(): tokens[4] = {}".format(tokens[4]))
+        zeroPadding = False if tokens[4] == 'noZeroPadding' else True
+        #print ("Net.Load(): zeroPadding = {}".format(zeroPadding))
+        self.__init__(positionTensorShape, bodyStructureList, numberOfLatentVariables, zeroPadding)
         self.load_state_dict(torch.load(filepath, map_location=lambda storage, location: storage))
         self.eval()
 

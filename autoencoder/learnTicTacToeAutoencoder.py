@@ -25,9 +25,11 @@ parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The depth of ex
 parser.add_argument('--learningRateExponentialDecay', help='The learning rate exponential decay. Default: 0.99', type=float, default=0.99)
 parser.add_argument('--positiveCaseWeight', help='For the loss BCEWithLogitsLoss, the weight of positive cases. Default: 3.0', type=float, default=3.0)
 parser.add_argument('--numberOfLatentVariables', help='The number of latent variables for the autoencoder. Default: 20', type=int, default=21)
+parser.add_argument('--bodyStructure', help="The structure of the encoding body, as a list of (kernelSize, nChannels, stride). Default: '[(3, 64, 1)]'", default='[(3, 64, 1)]')
 
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
+bodyStructure = ast.literal_eval(args.bodyStructure)
 
 print ("args.numberOfLatentVariables = {}".format(args.numberOfLatentVariables))
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(message)s')
@@ -79,7 +81,7 @@ def main():
 
     else:
         neuralNetwork = position.Net(    positionTensorShape,
-            bodyStructure=[(3, 64, 1)],#, (3, 64, 2)],#, (5, 16), (5, 16)],
+            bodyStructure=bodyStructure,
             numberOfLatentVariables=args.numberOfLatentVariables,
             zeroPadding=False
         )
