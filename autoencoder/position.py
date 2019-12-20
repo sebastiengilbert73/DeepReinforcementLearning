@@ -167,7 +167,7 @@ class Net(torch.nn.Module):
 
 def ConvolutionLayer(inputNumberOfChannels, kernelDimension, numberOfOutputChannels, stride=1, dilation=1, zeroPadding=True):
     if zeroPadding:
-        padding = int(kernelDimension/2)
+        padding = (int(kernelDimension[0]/2), int(kernelDimension[1]/2), int(kernelDimension[2]/2) )
     else:
         padding = 0
     return torch.nn.Sequential(
