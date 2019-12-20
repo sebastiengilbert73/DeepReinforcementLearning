@@ -11,20 +11,18 @@ import Predictor
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--disable-cuda', action='store_true', help='Disable CUDA')
-#parser.add_argument('--learningRate', help='The learning rate. Default: 0.001', type=float, default=0.001)
 parser.add_argument('--numberOfEpochs', help='Number of epochs. Default: 1000', type=int, default=1000)
-#parser.add_argument('--minibatchSize', help='The minibatch size. Default: 16', type=int, default=16)
 parser.add_argument('--outputDirectory', help="The directory where the output data will be written. Default: './outputs'", default='./outputs')
 parser.add_argument('--startWithNeuralNetwork', help='The starting neural network weights. Default: None', default=None)
+parser.add_argument('--startWithAutoencoder', help='The autoencoder whose encoder will be used. Default: None', default=None)
 parser.add_argument('--maximumNumberOfMovesForInitialPositions', help='The maximum number of moves in the initial positions. Default: 7', type=int, default=7)
 parser.add_argument('--numberOfPositionsForTraining', help='The number of positions for training per epoch. Default: 128', type=int, default=128)
 parser.add_argument('--numberOfPositionsForValidation', help='The number of positions for validation per epoch. Default: 128', type=int, default=128)
-#parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The depth of exhaustive search, when generating move statitics. Default: 1', default=1)
-#parser.add_argument('--learningRateExponentialDecay', help='The learning rate exponential decay. Default: 0.99', type=float, default=0.99)
 parser.add_argument('--epsilon', help='Probability to do a random move while generating move statistics. Default: 0.1', type=float, default=0.1)
 parser.add_argument('--numberOfSimulations', help='For each starting position, the number of simulations to evaluate the position value. Default: 30', type=int, default=30)
 parser.add_argument('--maximumNumberOfTrees', help='The maximum number of trees in the forest. Default: 50', type=int, default=50)
 parser.add_argument('--treesMaximumDepth', help='The maximum depth of each tree. Default: 6', type=int, default=6)
+
 
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
@@ -70,11 +68,13 @@ def main():
     if args.startWithNeuralNetwork is not None:
         raise NotImplementedError("main(): Start with a neural network is not implemented...")
     else:
-        autoencoderNet = autoencoder.position.Net()
-        autoencoderNet.Load('/home/sebastien/projects/DeepReinforcementLearning/autoencoder/outputs/AutoencoderNet_(2,1,3,3)_[(3,32,1),(3,32,1),(3,32,1)]_20_tictactoeAutoencoder_232.pth')
-        decoderRandomForest = Decoder.BuildARandomForestDecoderFromAnAutoencoder(
-            autoencoderNet, args.maximumNumberOfTrees, args.treesMaximumDepth)
-    decoderRandomForest.SetEvaluationMode('mean')
+        if args.startWithAutoencoder is not None:
+            autoencoderNet = autoencoder.position.Net()
+            autoencoderNet.Load(args.startWithAutoencoder)
+
+            decoderRandomForest = Decoder.BuildARandomForestDecoderFromAnAutoencoder(
+                autoencoderNet, args.maximumNumberOfTrees, args.treesMaximumDepth)
+            decoderRandomForest.SetEvaluationMode('mean')
 
     print ("main(): decoderRandomForest.encodingBodyStructureSeq = {}".format(decoderRandomForest.encodingBodyStructureSeq))
 
