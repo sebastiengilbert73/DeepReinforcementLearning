@@ -74,6 +74,7 @@ def main():
         autoencoderNet.Load('/home/sebastien/projects/DeepReinforcementLearning/autoencoder/outputs/AutoencoderNet_(2,1,3,3)_[(3,32,1),(3,32,1),(3,32,1)]_20_tictactoeAutoencoder_232.pth')
         decoderRandomForest = Decoder.BuildARandomForestDecoderFromAnAutoencoder(
             autoencoderNet, args.maximumNumberOfTrees, args.treesMaximumDepth)
+    decoderRandomForest.SetEvaluationMode('mean')
 
     print ("main(): decoderRandomForest.encodingBodyStructureSeq = {}".format(decoderRandomForest.encodingBodyStructureSeq))
 

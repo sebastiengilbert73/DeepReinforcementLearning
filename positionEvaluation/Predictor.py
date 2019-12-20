@@ -122,7 +122,8 @@ def SimulateGamesAgainstARandomPlayer(evaluator, gameAuthority, numberOfGames, g
     numberOfWinsForEvaluator = 0
     numberOfWinsForRandomPlayer = 0
     numberOfDraws = 0
-    playedGameToRewardDict = {}
+    if gameToRewardDict is None:
+        gameToRewardDict = {}
 
     for gameNdx in range(numberOfGames):
         evaluatorPlayer = playersList[gameNdx % 2]
@@ -179,17 +180,14 @@ def SimulateGamesAgainstARandomPlayer(evaluator, gameAuthority, numberOfGames, g
             moveNdx += 1
         if winner == evaluatorPlayer:
             numberOfWinsForEvaluator += 1
-            playedGameToRewardDict[tuple(positionsList)] = 1.0
+            gameToRewardDict[tuple(positionsList)] = 1.0
         elif winner == 'draw':
             numberOfDraws += 1
-            playedGameToRewardDict[tuple(positionsList)] = 0.0
+            gameToRewardDict[tuple(positionsList)] = 0.0
         else:
             numberOfWinsForRandomPlayer += 1
-            playedGameToRewardDict[tuple(positionsList)] = -1.0
+            gameToRewardDict[tuple(positionsList)] = -1.0
 
-    if gameToRewardDict is not None:
-        gameToRewardDict = playedGameToRewardDict
-        return (numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws, gameToRewardDict)
     else:
         return (numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws)
 

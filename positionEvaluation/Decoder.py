@@ -27,6 +27,7 @@ class RandomForest(Predictor.Evaluator):
 
         self.ReLU = torch.nn.ReLU()
         self.treesList = []
+        self.mode = 'mean'
 
     def LatentVariables(self, positionBatch):
         minibatchSize = positionBatch.shape[0]
@@ -74,12 +75,17 @@ class RandomForest(Predictor.Evaluator):
                     #print ("Value(): featuresTensor.shape = {}".format(featuresTensor.shape))
                     #print("Value(): featuresTensor.detach().shape = {}".format(featuresTensor.detach().shape))
                     prediction = self.treesList[treeNdx].predict(featuresTensor.detach().numpy().reshape(1, -1))[0]
-                    #print ("Value(): prediction = {}".format(prediction))
+                    #print ("Value(): treeNdx = {}; prediction = {}".format(treeNdx, prediction))
                     predictionsList.append(prediction)
                 #print ("Value(): predictionsList = {}".format(predictionsList))
                 #average = mean(predictionsList)
-                med = median(predictionsList)
-                treeValuesList.append(med)
+                if self.mode == 'mean':
+                    treeValuesList.append(mean(predictionsList))
+                elif self.mode == 'median':
+                    treeValuesList.append(median(predictionsList))
+                else:
+                    raise ValueError("RandomForest.Value(): Unknown mode '{}'".format(self.mode))
+                #print ("Value(): predictionsList = {}".format(predictionsList))
         return treeValuesList
 
     def LearnFromMinibatch(self, minibatchFeaturesTensor, minibatchTargetValues):
@@ -138,6 +144,9 @@ class RandomForest(Predictor.Evaluator):
                     productsTensor[exampleNdx, runningRowNdx] = product
                     runningRowNdx += 1
         return productsTensor
+
+    def SetEvaluationMode(self, mode):
+        self.mode = mode
 
 
 def BuildARandomForestDecoderFromAnAutoencoder(autoencoderNet, maximumNumberOfTrees, treesMaximumDepth):
