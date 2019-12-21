@@ -31,7 +31,7 @@ def Load(filepath):
     pickle_in.close()
     return evaluator
 
-def SimulateAGame(evaluator, gameAuthority, startingPosition=None, nextPlayer=None, epsilon=0.1):
+def SimulateAGame(evaluator, gameAuthority, startingPosition=None, nextPlayer=None, playerToEpsilonDict=None):
     playersList = gameAuthority.PlayersList()
     if startingPosition is None:
         startingPosition = gameAuthority.InitialPosition()
@@ -48,6 +48,10 @@ def SimulateAGame(evaluator, gameAuthority, startingPosition=None, nextPlayer=No
             currentPosition = gameAuthority.SwapPositions(currentPosition, playersList[0], playersList[1])
             #print("SimulateAGame(): playersList[1] turn!")
         randomNbr = numpy.random.rand()
+        if playerToEpsilonDict is not None:
+            epsilon = playerToEpsilonDict[nextPlayer]
+        else:
+            epsilon = 0
         if randomNbr < epsilon:
             chosenMoveTensor = utilities.ChooseARandomMove(currentPosition, playersList[0], gameAuthority)
         else:
@@ -92,14 +96,14 @@ def SimulateAGame(evaluator, gameAuthority, startingPosition=None, nextPlayer=No
     return positionsList, winner
 
 def SimulateMultipleGamesAndGetStatistics(evaluator, gameAuthority, numberOfGames, startingPosition=None,
-                                          nextPlayer=None, epsilon=0.1):
+                                          nextPlayer=None, playerToEpsilonDict=None):
     numberOfWinsForPlayer0 = 0
     numberOfWinsForPlayer1 = 0
     numberOfDraws = 0
     playersList = gameAuthority.PlayersList()
 
     for gameNdx in range(numberOfGames):
-        positionsList, winner = SimulateAGame(evaluator, gameAuthority, startingPosition, nextPlayer, epsilon)
+        positionsList, winner = SimulateAGame(evaluator, gameAuthority, startingPosition, nextPlayer, playerToEpsilonDict)
         if winner == playersList[0]:
             numberOfWinsForPlayer0 += 1
         elif winner == playersList[1]:
@@ -111,9 +115,9 @@ def SimulateMultipleGamesAndGetStatistics(evaluator, gameAuthority, numberOfGame
     return (numberOfWinsForPlayer0, numberOfWinsForPlayer1, numberOfDraws)
 
 def ExpectedReward(evaluator, gameAuthority, numberOfGames, startingPosition=None,
-                                          nextPlayer=None, epsilon=0.1):
+                                          nextPlayer=None, playerToEpsilonDict=None):
     (numberOfWinsForPlayer0, numberOfWinsForPlayer1, numberOfDraws) = SimulateMultipleGamesAndGetStatistics(
-        evaluator, gameAuthority, numberOfGames, startingPosition, nextPlayer, epsilon)
+        evaluator, gameAuthority, numberOfGames, startingPosition, nextPlayer, playerToEpsilonDict)
     return (1.0 * numberOfWinsForPlayer0 -1.0 * numberOfWinsForPlayer1)/numberOfGames
 
 def SimulateGamesAgainstARandomPlayer(evaluator, gameAuthority, numberOfGames, gameToRewardDict=None):
@@ -188,8 +192,7 @@ def SimulateGamesAgainstARandomPlayer(evaluator, gameAuthority, numberOfGames, g
             numberOfWinsForRandomPlayer += 1
             gameToRewardDict[tuple(positionsList)] = -1.0
 
-    else:
-        return (numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws)
+    return (numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws)
 
 def LegalMoveToExpectedReward(evaluator, gameAuthority, currentPosition, nextPlayer, numberOfGames, epsilon):
     legalMovesMask = gameAuthority.LegalMovesMask(currentPosition, nextPlayer)
@@ -217,14 +220,27 @@ def LegalMoveToExpectedReward(evaluator, gameAuthority, currentPosition, nextPla
 
 def SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions,
                         numberOfPositions):
+    playersList = authority.PlayersList()
     selectedPositionsList = []
     while len(selectedPositionsList) < numberOfPositions:
         gamePositionsList, winner = SimulateAGame(
-            evaluator=None, gameAuthority=authority, startingPosition=None, nextPlayer=None, epsilon=1.0) # With epsilon=1.0, the evaluator will never be called
+            evaluator=None, gameAuthority=authority, startingPosition=None, nextPlayer=None,
+            playerToEpsilonDict={playersList[0]: 1.0, playersList[1]: 1.0}) # With epsilon=1.0, the evaluator will never be called
         if len(gamePositionsList) >= minimumNumberOfMovesForInitialPositions:
             maxNdx = min(maximumNumberOfMovesForInitialPositions - 1, len(gamePositionsList) - 2) # The last index cannot be the last position, since the game is over
             if maxNdx < 0:
                 maxNdx = 0
-            selectedNdx = numpy.random.randint(maxNdx + 1) # maxNdx can be selected: {0, 1, 2, ..., maxNdx}
+            selectedNdx = numpy.random.randint(minimumNumberOfMovesForInitialPositions, maxNdx + 1) # maxNdx can be selected: {0, 1, 2, ..., maxNdx}
             selectedPositionsList.append(gamePositionsList[selectedNdx])
     return selectedPositionsList
+
+def ExpectedRewardsList(gameAuthority, evaluator, startingPositionsList, numberOfSimulations, nextPlayer, playerToEpsilonDict):
+    expectedRewardsList = []
+    for positionNdx in range(len(startingPositionsList)):
+        startingPosition = startingPositionsList[positionNdx]
+        expectedReward = ExpectedReward(evaluator, gameAuthority, numberOfSimulations,
+            startingPosition=startingPosition,
+            nextPlayer=nextPlayer,
+            playerToEpsilonDict=playerToEpsilonDict)
+        expectedRewardsList.append(expectedReward)
+    return expectedRewardsList

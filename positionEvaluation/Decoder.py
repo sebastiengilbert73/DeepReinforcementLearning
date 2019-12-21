@@ -213,7 +213,7 @@ class MLP(Predictor.Evaluator, torch.nn.Module):
         return latentVariablesTensor
 
     def Value(self, positionBatch):
-        outputTensor = forward(positionBatch)
+        outputTensor = self.forward(positionBatch)
         minibatchSize = positionBatch.shape[0]
         valuesList = []
         for exampleNdx in range(minibatchSize):
