@@ -4,6 +4,7 @@ import torch
 from sklearn.tree import DecisionTreeRegressor
 from statistics import mean, median
 import numpy
+import collections
 
 class RandomForest(Predictor.Evaluator):
     def __init__(self,
@@ -163,6 +164,83 @@ def BuildARandomForestDecoderFromAnAutoencoder(autoencoderNet, maximumNumberOfTr
         treesMaximumDepth=treesMaximumDepth)
     return randomForestDecoder
 
+
+class MLP(Predictor.Evaluator, torch.nn.Module):
+    def __init__(self,
+                 inputTensorShape=(2, 1, 3, 3),
+                 encodingBodyStructureList=[(3, 16, 1)],
+                 encodingBodyStructureSeq=None,  # Obtained from an autoencoder
+                 encodingBodyActivationNumberOfEntries=64,  # Obtained from an autoencoder
+                 encodingFullyConnectedLayer=None,  # Obtained from an autoencoder
+                 numberOfLatentVariables=100,  # Obtained from an autoencoder
+                 decodingLayerSizesList=[32, 16, 8]
+                 ):
+        super(MLP, self).__init__()
+        self.inputTensorShape = inputTensorShape
+        self.encodingBodyStructureList = encodingBodyStructureList
+        self.encodingBodyStructureSeq = encodingBodyStructureSeq
+        self.encodingBodyActivationNumberOfEntries = encodingBodyActivationNumberOfEntries
+        self.encodingFullyConnectedLayer = encodingFullyConnectedLayer
+        self.numberOfLatentVariables = numberOfLatentVariables
+        self.decodingLayerSizesList = decodingLayerSizesList
+        self.ReLU = torch.nn.ReLU()
+
+        decodingLayersDict = collections.OrderedDict()
+        previousLayerNumberOfNeurons = self.numberOfLatentVariables
+        for decodingLayerNdx in range(len(self.decodingLayerSizesList) ):
+            layerName = 'decodingLayer_' + str(decodingLayerNdx)
+            layer = torch.nn.Sequential(
+                torch.nn.Linear(previousLayerNumberOfNeurons, self.decodingLayerSizesList[decodingLayerNdx]),
+                torch.nn.Hardtanh())
+            decodingLayersDict[layerName] = layer
+            previousLayerNumberOfNeurons = self.decodingLayerSizesList[decodingLayerNdx]
+        # Last layer
+        lastLayer = torch.nn.Sequential(
+            torch.nn.Linear(previousLayerNumberOfNeurons, 1),
+            torch.nn.Hardtanh()
+        )
+        decodingLayersDict['decodingLayer_' + str(len(self.decodingLayerSizesList))] = lastLayer
+        self.decodingSeq = torch.nn.Sequential(decodingLayersDict)
+
+    def LatentVariables(self, positionBatch):
+        minibatchSize = positionBatch.shape[0]
+        activationTensor = positionBatch
+        activationTensor = self.encodingBodyStructureSeq(activationTensor)
+        activationTensor = activationTensor.view(minibatchSize, self.encodingBodyActivationNumberOfEntries)
+        activationTensor = self.encodingFullyConnectedLayer(activationTensor)
+        latentVariablesTensor = self.ReLU(activationTensor)
+
+        return latentVariablesTensor
+
+    def Value(self, positionBatch):
+        outputTensor = forward(positionBatch)
+        minibatchSize = positionBatch.shape[0]
+        valuesList = []
+        for exampleNdx in range(minibatchSize):
+            valuesList.append(outputTensor[exampleNdx])
+        return valuesList
+
+    def forward(self, inputTensor):
+        latentVariablesTensor = self.LatentVariables(inputTensor)
+        # Decoding
+        outputTensor = self.decodingSeq(latentVariablesTensor)
+        return outputTensor
+
+
+def BuildAnMLPDecoderFromAnAutoencoder(autoencoderNet, decodingLayerSizesList):
+    encodingBodyStructureSeq, encodingFullyConnectedLayer = autoencoderNet.EncodingLayers()
+    positionTensorShape, bodyActivationNumberOfEntries, numberOfLatentVariables, bodyStructureList = autoencoderNet.Shapes()
+    mlp = MLP(
+        inputTensorShape=positionTensorShape,
+        encodingBodyStructureList=bodyStructureList,
+        encodingBodyStructureSeq=encodingBodyStructureSeq,  # Obtained from an autoencoder
+        encodingBodyActivationNumberOfEntries=bodyActivationNumberOfEntries,  # Obtained from an autoencoder
+        encodingFullyConnectedLayer=encodingFullyConnectedLayer,  # Obtained from an autoencoder
+        numberOfLatentVariables=numberOfLatentVariables,  # Obtained from an autoencoder
+        decodingLayerSizesList=decodingLayerSizesList)
+    return mlp
+
+
 def main():
     print("Decoder.py main()")
 
@@ -170,15 +248,17 @@ def main():
     import pickle
     import utilities
 
-    randomForest = Predictor.Load('/home/sebastien/projects/DeepReinforcementLearning/positionEvaluation/outputs/tictactoe_23.bin')
-
-    print (randomForest.encodingBodyStructureSeq)
+    encoder = autoencoder.position.Net()
+    encoder.Load('/home/sebastien/projects/DeepReinforcementLearning/autoencoder/outputs/AutoencoderNet_(2,1,3,3)_[(3,64,1)]_32_noZeroPadding_tictactoeAutoencoder_1000.pth')
+    print ("main(): encoder = {}".format(encoder))
+    mlp = BuildAnMLPDecoderFromAnAutoencoder(encoder, [8, 2])
+    print ("main(): mlp = {}".format(mlp))
     authority = tictactoe.Authority()
     playersList = authority.PlayersList()
 
     inputTensor = authority.InitialPosition()
     #inputTensor[1, 0, 0, 0] = 1
-    #inputTensor[0, 0, 0, 1] = 1
+    inputTensor[0, 0, 0, 1] = 1
     #inputTensor[0, 0, 0, 2] = 1
     #inputTensor[0, 0, 1, 0] = 1
     inputTensor[1, 0, 1, 1] = 1
@@ -188,36 +268,8 @@ def main():
     #inputTensor[0, 0, 2, 2] = 1
     authority.Display(inputTensor)
 
-    value = randomForest.Value(inputTensor.unsqueeze(0))
-    print ("value = {}".format(value))
-
-    legalMoveTensorsList = utilities.LegalMoveTensorsList(authority, inputTensor, playersList[0])
-    print ("legalMoveTensorsList = {}".format(legalMoveTensorsList))
-
-    for gameNdx in range(10):
-        gamePositionsList, winner = Predictor.SimulateAGame(
-            evaluator=None, gameAuthority=authority, startingPosition=None, nextPlayer=None, epsilon=1.0)
-        for gamePosition in gamePositionsList:
-            authority.Display(gamePosition)
-            print('')
-
-
-    """legalMoveToExpectedRewardDict = Predictor.LegalMoveToExpectedReward(
-        randomForest, authority, inputTensor, playersList[0], numberOfGames=10, epsilon=0.1)
-
-    print ("legalMoveToExpectedRewardDict = {}".format(legalMoveToExpectedRewardDict))
-    """
-
-    """positionsList, winner = Predictor.SimulateAGame(randomForest, authority, inputTensor, playersList[1])
-    print ("positionsList = \n{}".format(positionsList))
-    print ("winner = {}".format(winner))
-    """
-
-    """(numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws) = Predictor.SimulateGamesAgainstARandomPlayer(
-        randomForest, authority, 30
-    )
-    print ("(numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws) = ({}, {}, {})".format(numberOfWinsForEvaluator, numberOfWinsForRandomPlayer, numberOfDraws))
-    """
+    outputTensor = mlp(inputTensor.unsqueeze(0))
+    print ("main(): outputTensor = \n{}".format(outputTensor))
 
 if __name__ == '__main__':
     main()

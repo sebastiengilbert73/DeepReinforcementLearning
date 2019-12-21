@@ -15,9 +15,9 @@ class Evaluator(abc.ABC):
     def Value(self, position):
         pass # return a float
 
-    @abc.abstractmethod
-    def LearnFromMinibatch(self, minibatchFeaturesTensor, minibatchTargetValues):
-        pass
+    #@abc.abstractmethod
+    #def LearnFromMinibatch(self, minibatchFeaturesTensor, minibatchTargetValues):
+    #    pass
 
     def Save(self, filepath):
         binary_file = open(filepath, mode='wb')
