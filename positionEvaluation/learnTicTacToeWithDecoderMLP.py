@@ -22,6 +22,8 @@ parser.add_argument('--epsilon', help='Probability to do a random move while gen
 parser.add_argument('--numberOfSimulations', help='For each starting position, the number of simulations to evaluate the position value. Default: 30', type=int, default=30)
 parser.add_argument('--learningRate', help='The learning rate. Default: 0.001', type=float, default=0.001)
 parser.add_argument('--decodingLayerSizesList', help="The list of decoding layer sizes. Default: '[8, 2]'", default='[8, 2]')
+parser.add_argument('--numberOfGamesAgainstARandomPlayer', help='The number of games, when playing against a random player. Default: 30', type=int, default=30)
+
 
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
@@ -39,6 +41,14 @@ def StartingPositionsTensor(startingPositionsList):
     for positionNdx in range(len(startingPositionsList)):
         startingPositionsTensor[positionNdx] = startingPositionsList[positionNdx]
     return startingPositionsTensor
+
+def ExpectedRewardsTensor(expectedRewardsList):
+    expectedRewardsTensor = torch.zeros(len(expectedRewardsList))
+    for rewardNdx in range(len(expectedRewardsList)):
+        expectedRewardsTensor[rewardNdx] = expectedRewardsList[rewardNdx]
+    return expectedRewardsTensor
+
+
 
 def main():
     logging.info("learnTicTacToeWithDecoderMLP.py main()")
@@ -79,6 +89,102 @@ def main():
     # Initial learning rate
     learningRate = args.learningRate
 
+    # Output monitoring file
+    epochLossFile = open(os.path.join(args.outputDirectory, 'epochLoss.csv'), "w",
+                         buffering=1)  # Flush the buffer at each line
+    epochLossFile.write(
+        "epoch,trainingMSE,validationMSE,averageRewardAgainstRandomPlayer,winRate,drawRate,lossRate\n")
+
+    # First game with a random player, before any training
+    (numberOfWinsForEvaluator, numberOfWinsForRandomPlayer,
+     numberOfDraws) = Predictor.SimulateGamesAgainstARandomPlayer(
+        decoderMLP, authority, args.numberOfGamesAgainstARandomPlayer
+    )
+    winRate = numberOfWinsForEvaluator / (numberOfWinsForEvaluator + numberOfWinsForRandomPlayer + numberOfDraws)
+    lossRate = numberOfWinsForRandomPlayer / (numberOfWinsForEvaluator + numberOfWinsForRandomPlayer + numberOfDraws)
+    drawRate = numberOfDraws / (numberOfWinsForEvaluator + numberOfWinsForRandomPlayer + numberOfDraws)
+    logging.info(
+        "Against a random player, winRate = {}; drawRate = {}; lossRate = {}".format(winRate, drawRate, lossRate))
+
+    epochLossFile.write(
+        '0' + ',' + '-' + ',' + '-' + ',' + str(winRate - lossRate) + ',' + str(
+            winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
+
+    playerToEpsilonDict = {playerList[0]: 0, playerList[1]: args.epsilon}
+
+    for epoch in range(1, args.numberOfEpochs + 1):
+        logging.info ("Epoch {}".format(epoch))
+        decoderMLP.train()
+
+        # Generate positions
+        minimumNumberOfMovesForInitialPositions = MinimumNumberOfMovesForInitialPositions(epoch)
+        maximumNumberOfMovesForInitialPositions = args.maximumNumberOfMovesForInitialPositions
+        logging.info("Generating positions...")
+        startingPositionsList = Predictor.SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions,
+                                                    maximumNumberOfMovesForInitialPositions,
+                                                    args.numberOfPositionsForTraining)
+        #print ("main(): startingPositionsList = {}".format(startingPositionsList))
+
+        startingPositionsTensor = StartingPositionsTensor(startingPositionsList)
+        logging.info("Evaluating expected reward for each starting position...")
+        expectedRewardsList = Predictor.ExpectedRewardsList(authority, decoderMLP, startingPositionsList,
+                                                  args.numberOfSimulations, playerList[1],
+                                                  playerToEpsilonDict=playerToEpsilonDict)
+        #print ("main(): expectedRewardsList = {}".format(expectedRewardsList))
+        expectedRewardsTensor = ExpectedRewardsTensor(expectedRewardsList)
+
+        # Since the samples are generated dynamically, there is no need for minibatches: all samples are always new
+        optimizer.zero_grad()
+
+        # Forward pass
+        outputTensor = decoderMLP(startingPositionsTensor)
+
+        # Calculate the error and backpropagate
+        trainingLoss = loss(outputTensor, expectedRewardsTensor)
+        logging.info("trainingLoss.item() = {}".format(trainingLoss.item()))
+
+        trainingLoss.backward()
+
+        # Move in the gradient descent direction
+        optimizer.step()
+
+
+        # Validation
+        decoderMLP.eval()
+        validationStartingPositionsList = Predictor.SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions,
+                                                              maximumNumberOfMovesForInitialPositions,
+                                                              args.numberOfPositionsForValidation)
+
+        validationStartingPositionsTensor = StartingPositionsTensor(validationStartingPositionsList)
+        logging.info("Evaluating expected reward for each validation starting position...")
+        validationExpectedRewardsList = Predictor.ExpectedRewardsList(authority, decoderMLP, validationStartingPositionsList,
+                                                            args.numberOfSimulations, playerList[1],
+                                                            playerToEpsilonDict=playerToEpsilonDict)
+        validationExpectedRewardsTensor = ExpectedRewardsTensor(validationExpectedRewardsList)
+
+        validationOutputTensor = decoderMLP(validationStartingPositionsTensor)
+        validationLoss = loss(validationOutputTensor, validationExpectedRewardsTensor)
+        logging.info("validationLoss.item() = {}".format(validationLoss.item()))
+
+
+
+        # Play against a random player
+        (numberOfWinsForEvaluator, numberOfWinsForRandomPlayer,
+         numberOfDraws) = Predictor.SimulateGamesAgainstARandomPlayer(
+            decoderMLP, authority, args.numberOfGamesAgainstARandomPlayer
+        )
+        winRate = numberOfWinsForEvaluator / (numberOfWinsForEvaluator + numberOfWinsForRandomPlayer + numberOfDraws)
+        lossRate = numberOfWinsForRandomPlayer / (
+                    numberOfWinsForEvaluator + numberOfWinsForRandomPlayer + numberOfDraws)
+        drawRate = numberOfDraws / (numberOfWinsForEvaluator + numberOfWinsForRandomPlayer + numberOfDraws)
+        logging.info(
+            "Against a random player, winRate = {}; drawRate = {}; lossRate = {}".format(winRate, drawRate, lossRate))
+
+        epochLossFile.write(
+            str(epoch) + ',' + str(trainingLoss.item()) + ',' + str(validationLoss.item()) + ',' + str(winRate - lossRate) + ',' + str(
+                winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
+        filepath = os.path.join(args.outputDirectory, 'tictactoe_' + str(epoch) + '.bin')
+        decoderMLP.Save(filepath)
 
 if __name__ == '__main__':
     main()
