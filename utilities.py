@@ -239,6 +239,14 @@ def LegalMoveTensorsList(gameAuthority, positionTensor, nextPlayer):
         legalMoveTensorsList.append(candidateMoveTensor)
     return legalMoveTensorsList
 
+def LegalCandidatePositionsAfterMove(gameAuthority, positionTensor, nextPlayer):
+    legalMovesTensorList = LegalMoveTensorsList(gameAuthority, positionTensor, nextPlayer)
+    legalCandidatePositionsAfterMove = []
+    for legalMoveTsr in legalMovesTensorList:
+        (candiatePositionTensor, winner) = gameAuthority.Move(positionTensor, nextPlayer, legalMoveTsr)
+        legalCandidatePositionsAfterMove.append((candiatePositionTensor, winner))
+    return legalCandidatePositionsAfterMove
+
 if __name__ == '__main__':
     import checkers
 
