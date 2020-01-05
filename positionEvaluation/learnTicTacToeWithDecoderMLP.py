@@ -76,7 +76,7 @@ def main():
         if 'decoding' in name:
             param.requires_grad = True
         else:
-            param.requires_grad = False
+            param.requires_grad = True
         print("name = {}; param.requires_grad = {}".format(name, param.requires_grad))
 
 
@@ -110,7 +110,7 @@ def main():
         '0' + ',' + '-' + ',' + '-' + ',' + str(winRate - lossRate) + ',' + str(
             winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
 
-    playerToEpsilonDict = {playerList[0]: 0, playerList[1]: args.epsilon}
+    playerToEpsilonDict = {playerList[0]: args.epsilon, playerList[1]: args.epsilon}
 
     for epoch in range(1, args.numberOfEpochs + 1):
         logging.info ("Epoch {}".format(epoch))
@@ -183,8 +183,9 @@ def main():
         epochLossFile.write(
             str(epoch) + ',' + str(trainingLoss.item()) + ',' + str(validationLoss.item()) + ',' + str(winRate - lossRate) + ',' + str(
                 winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
-        filepath = os.path.join(args.outputDirectory, 'tictactoe_' + str(epoch) + '.bin')
-        decoderMLP.Save(filepath)
+        if epoch % 10 == 0:
+            filepath = os.path.join(args.outputDirectory, 'tictactoe_' + str(epoch) + '.bin')
+            decoderMLP.Save(filepath)
 
 if __name__ == '__main__':
     main()
