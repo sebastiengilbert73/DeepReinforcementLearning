@@ -110,7 +110,7 @@ def main():
         if 'decoding' in name:
             param.requires_grad = True
         else:
-            param.requires_grad = True
+            param.requires_grad = False
         print("name = {}; param.requires_grad = {}".format(name, param.requires_grad))
 
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, decoderClassifier.parameters()), lr=args.learningRate,
@@ -204,6 +204,10 @@ def main():
         validationStartingPositionsList = Comparison.SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions,
                                                                maximumNumberOfMovesForInitialPositions,
                                                                args.numberOfPositionsForValidation)
+        for validationStartingPositionNdx in range(len(validationStartingPositionsList)):
+            if numpy.random.random() >= 0.5:
+                swappedPosition = authority.SwapPositions(validationStartingPositionsList[validationStartingPositionNdx], playerList[0], playerList[1])
+                validationStartingPositionsList[validationStartingPositionNdx] = swappedPosition
         # print ("main(): startingPositionsList = {}".format(startingPositionsList))
 
         validationStartingPositionsTensor = StartingPositionsTensor(validationStartingPositionsList)
@@ -247,6 +251,11 @@ def main():
             for position in epsilon0GamePositionsList:
                 authority.Display(position)
                 print(".............\n")
+
+        if epoch % 100 == 0:
+            learningRate = learningRate/3
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = learningRate
 
 if __name__ == '__main__':
     main()
