@@ -24,7 +24,7 @@ parser.add_argument('--numberOfPositionsForValidation', help='The number of posi
 parser.add_argument('--depthOfExhaustiveSearch', type=int, help='The depth of exhaustive search, when generating move statitics. Default: 1', default=1)
 parser.add_argument('--learningRateExponentialDecay', help='The learning rate exponential decay. Default: 0.99', type=float, default=0.99)
 parser.add_argument('--positiveCaseWeight', help='For the loss BCEWithLogitsLoss, the weight of positive cases. Default: 3.0', type=float, default=3.0)
-parser.add_argument('--numberOfLatentVariables', help='The number of latent variables for the autoencoder. Default: 20', type=int, default=21)
+parser.add_argument('--numberOfLatentVariables', help='The number of latent variables for the autoencoder. Default: 21', type=int, default=21)
 parser.add_argument('--bodyStructure', help="The structure of the encoding body, as a list of (kernelSize, nChannels, stride). Default: '[(3, 64, 1)]'", default='[(3, 64, 1)]')
 
 args = parser.parse_args()

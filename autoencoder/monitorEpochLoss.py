@@ -35,7 +35,7 @@ def animate(i):
     plt.ylim((0, 1.0))
     ax1.plot(epochs, trainingLossList, label=headers[1])
     ax1.plot(epochs, validationLossList, label=headers[2])
-    #ax1.plot(epochs, errorRateList, label=headers[3])
+    ax1.plot(epochs, errorRateList, label=headers[3])
 
     ax1.legend(shadow=True, fancybox=True)
 
