@@ -54,10 +54,15 @@ class DecoderClassifier(Comparison.Comparator,
         inputTsr[0, 0: self.inputTensorShape[0], :, :, :] = position0
         inputTsr[0, self.inputTensorShape[0]: , :, :, :] = position1
         outputTsr = self.forward(inputTsr)
-        if outputTsr[0, 0] >= outputTsr[0, 1]:
+        if outputTsr[0, 0] > outputTsr[0, 1]:
             return position0
-        else:
+        elif outputTsr[0, 0] < outputTsr[0, 1]:
             return position1
+        else: # Equality: return random move
+            if numpy.random.random() < 0.5:
+                return position0
+            else:
+                return position1
 
 
 def BuildADecoderClassifierFromAnAutoencoder(autoencoderNet):

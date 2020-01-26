@@ -9,6 +9,7 @@ import autoencoder.position # autoencoder
 import Comparison
 import ComparisonNet
 import numpy.random
+import utilities
 
 
 parser = argparse.ArgumentParser()
@@ -54,6 +55,40 @@ def StartingPositionsTensor(startingPositionsList):
         startingPositionsTensor[2 * pairNdx] = positionPair01Tsr
         startingPositionsTensor[2 * pairNdx + 1] = positionPair10Tsr
     return startingPositionsTensor
+
+def StartingPositionsInPairsOfPossibleOptions(startingPositionsList, authority):
+    playersList = authority.PlayersList()
+    positionShape = startingPositionsList[0].shape
+    startingPositionsTensor = torch.zeros(2 * len(startingPositionsList), 2 * positionShape[0],
+                                          positionShape[1], positionShape[2], positionShape[3])
+    augmentedStartingPositionsList = []
+
+    for pairNdx in range(len(startingPositionsList) ):
+        rootPosition = startingPositionsList[pairNdx]
+        candidatePositionWinnerPairsList = utilities.LegalCandidatePositionsAfterMove(authority, rootPosition, playersList[0])
+        position0 = candidatePositionWinnerPairsList[0][0]
+        position1 = candidatePositionWinnerPairsList[0][0]
+        if len (candidatePositionWinnerPairsList) > 1:
+            indices = numpy.arange(len(candidatePositionWinnerPairsList))
+            numpy.random.shuffle(indices)
+            if candidatePositionWinnerPairsList[indices[0]][1] is None and \
+                    candidatePositionWinnerPairsList[indices[1]][1] is None:
+                position0 = candidatePositionWinnerPairsList[indices[0]][0]
+                position1 = candidatePositionWinnerPairsList[indices[1]][0]
+        positionPair01Tsr = torch.zeros(2 * positionShape[0], positionShape[1], positionShape[2], positionShape[3])
+        positionPair01Tsr[0: positionShape[0]] = position0
+        positionPair01Tsr[positionShape[0]:] = position1
+
+        positionPair10Tsr = torch.zeros(2 * positionShape[0], positionShape[1], positionShape[2], positionShape[3])
+        positionPair10Tsr[0: positionShape[0]] = position1
+        positionPair10Tsr[positionShape[0]:] = position0
+
+        startingPositionsTensor[2 * pairNdx] = positionPair01Tsr
+        startingPositionsTensor[2 * pairNdx + 1] = positionPair10Tsr
+
+        augmentedStartingPositionsList.append(position0)
+        augmentedStartingPositionsList.append(position1)
+    return startingPositionsTensor, augmentedStartingPositionsList
 
 def PairWinnerIndexTensor(pairWinnerIndexList):
     pairWinnerIndexTsr = torch.zeros(2 * len(pairWinnerIndexList) ).long()
@@ -126,7 +161,7 @@ def main():
     epochLossFile = open(os.path.join(args.outputDirectory, 'epochLoss.csv'), "w",
                          buffering=1)  # Flush the buffer at each line
     epochLossFile.write(
-        "epoch,trainingLoss,validationLoss,averageRewardAgainstRandomPlayer,winRate,drawRate,lossRate\n")
+        "epoch,trainingLoss,validationLoss,averageReward,winRate,drawRate,lossRate\n")
 
     # First game with a random player, before any training
     (numberOfWinsForComparator, numberOfWinsForRandomPlayer,
@@ -157,29 +192,35 @@ def main():
         logging.info("Generating positions...")
         startingPositionsList = Comparison.SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions,
                                                     maximumNumberOfMovesForInitialPositions,
-                                                    args.numberOfPositionsForTraining)
+                                                    args.numberOfPositionsForTraining,
+                                                    swapIfOddNumberOfMoves=True)
 
-        for startingPositionNdx in range(len(startingPositionsList)):
+        """for startingPositionNdx in range(len(startingPositionsList)):
             if numpy.random.random() >= 0.5:
+                #print ("main(): swapped...")
                 swappedPosition = authority.SwapPositions(startingPositionsList[startingPositionNdx], playerList[0], playerList[1])
                 startingPositionsList[startingPositionNdx] = swappedPosition
-
+        """
 
         numberOfMajorityX, numberOfMajorityO, numberOfEqualities = Majority(startingPositionsList)
         print ("numberOfMajorityX = {}; numberOfMajorityO = {}; numberOfEqualities = {}".format(numberOfMajorityX, numberOfMajorityO, numberOfEqualities))
         #print ("main(): startingPositionsList = {}".format(startingPositionsList))
 
-        startingPositionsTensor = StartingPositionsTensor(startingPositionsList)
+        startingPositionsTensor, augmentedStartingPositionsList = StartingPositionsInPairsOfPossibleOptions(startingPositionsList, authority)
+        #print ("main(): augmentedStartingPositionsList = {}".format(augmentedStartingPositionsList))
+        #print ("main(): startingPositionsTensor.shape = {}".format(startingPositionsTensor.shape))
+        #print ("main(): startingPositionsTensor = {}".format(startingPositionsTensor))
 
         logging.info("Comparing starting position pairs...")
         pairWinnerIndexList = Comparison.ComparePositionPairs(authority, decoderClassifier,
-                                                              startingPositionsList,
+                                                              augmentedStartingPositionsList,
                                                               args.numberOfSimulations,
                                                               args.epsilon)
         #print ("pairWinnerIndexList = {}".format(pairWinnerIndexList))
 
         pairWinnerIndexTsr = PairWinnerIndexTensor(pairWinnerIndexList)
-        #print ("pairWinnerIndexTsr = {}".format(pairWinnerIndexTsr))
+        #print ("main(): pairWinnerIndexTsr.shape = {}".format(pairWinnerIndexTsr.shape))
+        #print ("main(): pairWinnerIndexTsr = {}".format(pairWinnerIndexTsr))
 
         # Since the samples are generated dynamically, there is no need for minibatches: all samples are always new
         optimizer.zero_grad()
@@ -203,18 +244,21 @@ def main():
         logging.info("Generating validation positions...")
         validationStartingPositionsList = Comparison.SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions,
                                                                maximumNumberOfMovesForInitialPositions,
-                                                               args.numberOfPositionsForValidation)
-        for validationStartingPositionNdx in range(len(validationStartingPositionsList)):
+                                                               args.numberOfPositionsForValidation,
+                                                               swapIfOddNumberOfMoves=True)
+        """for validationStartingPositionNdx in range(len(validationStartingPositionsList)):
             if numpy.random.random() >= 0.5:
                 swappedPosition = authority.SwapPositions(validationStartingPositionsList[validationStartingPositionNdx], playerList[0], playerList[1])
                 validationStartingPositionsList[validationStartingPositionNdx] = swappedPosition
+        """
         # print ("main(): startingPositionsList = {}".format(startingPositionsList))
 
-        validationStartingPositionsTensor = StartingPositionsTensor(validationStartingPositionsList)
+        validationStartingPositionsTensor, validationAugmentedStartingPositionsList = \
+            StartingPositionsInPairsOfPossibleOptions(validationStartingPositionsList, authority)
 
         logging.info("Comparing validation starting position pairs...")
         validationPairWinnerIndexList = Comparison.ComparePositionPairs(authority, decoderClassifier,
-                                                              validationStartingPositionsList,
+                                                              validationAugmentedStartingPositionsList,
                                                               args.numberOfSimulations,
                                                               args.epsilon)
         validationPairWinnerIndexTsr = PairWinnerIndexTensor(validationPairWinnerIndexList)

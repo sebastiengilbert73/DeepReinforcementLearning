@@ -172,7 +172,7 @@ def SimulateGamesAgainstARandomPlayer(comparator, gameAuthority, numberOfGames, 
     return (numberOfWinsForComparator, numberOfWinsForRandomPlayer, numberOfDraws)
 
 def SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions,
-                        numberOfPositions):
+                        numberOfPositions, swapIfOddNumberOfMoves=False):
     playersList = authority.PlayersList()
     selectedPositionsList = []
     while len(selectedPositionsList) < numberOfPositions:
@@ -184,7 +184,10 @@ def SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions, maxi
             if maxNdx < 0:
                 maxNdx = 0
             selectedNdx = numpy.random.randint(minimumNumberOfMovesForInitialPositions, maxNdx + 1) # maxNdx can be selected: {0, 1, 2, ..., maxNdx}
-            selectedPositionsList.append(gamePositionsList[selectedNdx])
+            if swapIfOddNumberOfMoves and selectedNdx %2 == 1:
+                selectedPositionsList.append(authority.SwapPositions( gamePositionsList[selectedNdx], playersList[0], playersList[1] ))
+            else:
+                selectedPositionsList.append(gamePositionsList[selectedNdx])
     return selectedPositionsList
 
 def ComparePositionPairs(authority, comparator, positionTsrList, numberOfGames, epsilon):
