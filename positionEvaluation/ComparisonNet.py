@@ -2,6 +2,7 @@ import Comparison
 import autoencoder.position
 import torch
 import math
+import numpy
 
 class DecoderClassifier(Comparison.Comparator,
                         torch.nn.Module):
@@ -23,8 +24,21 @@ class DecoderClassifier(Comparison.Comparator,
 
         self.decodingIntermediateNumberOfNeurons = 3 * numberOfLatentVariables #math.ceil(math.sqrt(2 * numberOfLatentVariables * 2))
         self.decodingLinearLayer1 = torch.nn.Linear(2 * self.numberOfLatentVariables, self.decodingIntermediateNumberOfNeurons)
-        self.decodingLinearLayer2 = torch.nn.Linear(self.decodingIntermediateNumberOfNeurons, 2)
+        self.decodingLinearLayer2 = torch.nn.Linear(self.decodingIntermediateNumberOfNeurons,
+                                                    self.decodingIntermediateNumberOfNeurons)
+        self.decodingLinearLayer3 = torch.nn.Linear(self.decodingIntermediateNumberOfNeurons,
+                                                    self.decodingIntermediateNumberOfNeurons)
+        self.decodingLinearLayer4 = torch.nn.Linear(self.decodingIntermediateNumberOfNeurons,
+                                                    self.decodingIntermediateNumberOfNeurons)
+        self.decodingLinearLayer5 = torch.nn.Linear(self.decodingIntermediateNumberOfNeurons,
+                                                    self.decodingIntermediateNumberOfNeurons)
+        self.decodingLinearLayer6 = torch.nn.Linear(self.decodingIntermediateNumberOfNeurons,
+                                                    self.decodingIntermediateNumberOfNeurons)
+        self.decodingLinearLayer7 = torch.nn.Linear(self.decodingIntermediateNumberOfNeurons,
+                                                    self.decodingIntermediateNumberOfNeurons)
+        self.decodingLinearLayer8 = torch.nn.Linear(self.decodingIntermediateNumberOfNeurons, 2)
 
+        #self.instancenorm = torch.nn.InstanceNorm1d(num_features = self.decodingIntermediateNumberOfNeurons)
 
     def LatentVariables(self, positionBatch):
         minibatchSize = positionBatch.shape[0]
@@ -45,8 +59,21 @@ class DecoderClassifier(Comparison.Comparator,
         #print ("forward(): latentVariablesTsr0.shape = {}".format(latentVariablesTsr0.shape))
         #print ("forward(): latentVariablesTsr1.shape = {}".format(latentVariablesTsr1.shape))
         #print ("forward(): latentVariablesTsr.shape = {}".format(latentVariablesTsr.shape))
-        activationTsr = torch.nn.functional.relu(self.decodingLinearLayer1(latentVariablesTsr) )
-        outputTsr = self.decodingLinearLayer2(activationTsr)
+        activationTsr = torch.nn.functional.relu(self.decodingLinearLayer1(latentVariablesTsr))
+        #activationTsr = self.instancenorm(activationTsr)
+        activationTsr = torch.nn.functional.relu(self.decodingLinearLayer2(activationTsr))
+        #activationTsr = self.instancenorm(activationTsr)
+        activationTsr = torch.nn.functional.relu(self.decodingLinearLayer3(activationTsr))
+        #activationTsr = self.instancenorm(activationTsr)
+        activationTsr = torch.nn.functional.relu(self.decodingLinearLayer4(activationTsr))
+        #activationTsr = self.instancenorm(activationTsr)
+        activationTsr = torch.nn.functional.relu(self.decodingLinearLayer5(activationTsr))
+        #activationTsr = self.instancenorm(activationTsr)
+        activationTsr = torch.nn.functional.relu(self.decodingLinearLayer6(activationTsr))
+        #activationTsr = self.instancenorm(activationTsr)
+        activationTsr = torch.nn.functional.relu(self.decodingLinearLayer7(activationTsr))
+        #activationTsr = self.instancenorm(activationTsr)
+        outputTsr = torch.sigmoid( self.decodingLinearLayer8(activationTsr) )
         return outputTsr
 
     def BestPosition(self, position0, position1):
@@ -63,6 +90,13 @@ class DecoderClassifier(Comparison.Comparator,
                 return position0
             else:
                 return position1
+
+    def Gradient0(self):
+        return self.decodingLinearLayer1.weights.grad
+
+    def Gradient0AbsMean(self):
+        gradient0 = self.Gradient0()
+        return gradient0.abs().mean().item()
 
 
 def BuildADecoderClassifierFromAnAutoencoder(autoencoderNet):
