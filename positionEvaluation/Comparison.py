@@ -190,12 +190,12 @@ def SimulateRandomGames(authority, minimumNumberOfMovesForInitialPositions, maxi
                 selectedPositionsList.append(gamePositionsList[selectedNdx])
     return selectedPositionsList
 
-def ComparePositionPairs(authority, comparator, positionTsrList, numberOfGames, epsilon):
-    winnerIndexList = []
+def ComparePositionPairs(authority, comparator, positionTsrList, numberOfGames, epsilon=1.0, playerToEpsilonDict=None):
     if len(positionTsrList) %2 == 1: # If an odd number of positions, ignore the last one
         positionTsrList = positionTsrList[0: -1]
     playersList = authority.PlayersList()
-    playerToEpsilonDict = {playersList[0]: epsilon, playersList[1]: epsilon}
+    if playerToEpsilonDict is None:
+        playerToEpsilonDict = {playersList[0]: epsilon, playersList[1]: epsilon}
     pairWinnerIndexList = []
     for pairNdx in range(len(positionTsrList)//2):
         position0 = positionTsrList[2 * pairNdx]
