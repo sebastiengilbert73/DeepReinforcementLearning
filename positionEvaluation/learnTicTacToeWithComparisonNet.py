@@ -10,6 +10,7 @@ import Comparison
 import ComparisonNet
 import numpy.random
 import utilities
+import PCAModel
 
 
 parser = argparse.ArgumentParser()
@@ -31,6 +32,7 @@ parser.add_argument('--numberOfGamesAgainstARandomPlayer', help='The number of g
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
 decodingLayerSizesList = ast.literal_eval(args.decodingLayerSizesList)
+pca_zero_threshold = 0.000001
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(message)s')
 
@@ -119,6 +121,8 @@ def Majority(startingPositionsList):
     return numberOfMajorityX, numberOfMajorityO, numberOfEqualities
 
 
+
+
 def main():
     print ("learnTicTacToeWithComparisonNet.py main()")
 
@@ -164,6 +168,7 @@ def main():
         "epoch,trainingLoss,validationLoss,averageReward,winRate,drawRate,lossRate\n")
 
     # First game with a random player, before any training
+    decoderClassifier.eval()
     (numberOfWinsForComparator, numberOfWinsForRandomPlayer,
      numberOfDraws) = Comparison.SimulateGamesAgainstARandomPlayer(
         decoderClassifier, authority, args.numberOfGamesAgainstARandomPlayer)
@@ -180,11 +185,39 @@ def main():
         '0' + ',' + '-' + ',' + '-' + ',' + str(winRate - lossRate) + ',' + str(
             winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
 
-    playerToEpsilonDict = {playerList[0]: args.epsilon, playerList[1]: args.epsilon}
+    latentRepresentationFile = open(os.path.join(args.outputDirectory, 'latentRepresentation.csv'), "w", buffering=1)
+
+    #playerToEpsilonDict = {playerList[0]: args.epsilon, playerList[1]: args.epsilon}
+    epsilon = args.epsilon
 
     for epoch in range(1, args.numberOfEpochs + 1):
         logging.info ("Epoch {}".format(epoch))
         decoderClassifier.train()
+
+        if epoch % 100 == 0:
+            learningRate = learningRate/2
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = learningRate
+            #epsilon = epsilon/2
+        """if (epoch // 25) %2 == 0: # Optimize decoding
+            for name, param in decoderClassifier.named_parameters():
+                if 'decoding' in name:
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
+            logging.info("Optimizing decoding layers")
+        else: # Optimize encoding
+            for name, param in decoderClassifier.named_parameters():
+                if 'decoding' in name:
+                    param.requires_grad = False
+                else:
+                    param.requires_grad = True
+            logging.info("Optimizing encoding layers")
+
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, decoderClassifier.parameters()),
+                                     lr=learningRate,
+                                     betas=(0.5, 0.999))
+        """
 
         # Generate positions
         minimumNumberOfMovesForInitialPositions = MinimumNumberOfMovesForInitialPositions(epoch)
@@ -212,11 +245,14 @@ def main():
         #print ("main(): startingPositionsTensor = {}".format(startingPositionsTensor))
 
         logging.info("Comparing starting position pairs...")
+        decoderClassifier.eval()
         pairWinnerIndexList = Comparison.ComparePositionPairs(authority, decoderClassifier,
                                                               augmentedStartingPositionsList,
                                                               args.numberOfSimulations,
-                                                              args.epsilon)
+                                                              epsilon=0,
+                                                              playerToEpsilonDict={playerList[0]: 0.0, playerList[1]: epsilon})
         #print ("pairWinnerIndexList = {}".format(pairWinnerIndexList))
+        decoderClassifier.train()
 
         pairWinnerIndexTsr = PairWinnerIndexTensor(pairWinnerIndexList)
         #print ("main(): pairWinnerIndexTsr.shape = {}".format(pairWinnerIndexTsr.shape))
@@ -237,8 +273,10 @@ def main():
         # Move in the gradient descent direction
         optimizer.step()
 
+        gradient0AbsMean = decoderClassifier.Gradient0AbsMean()
+        logging.debug("gradient0AbsMean = {}".format(gradient0AbsMean))
 
-        # Validation
+        # ******************  Validation ******************
         decoderClassifier.eval()
 
         logging.info("Generating validation positions...")
@@ -260,7 +298,8 @@ def main():
         validationPairWinnerIndexList = Comparison.ComparePositionPairs(authority, decoderClassifier,
                                                               validationAugmentedStartingPositionsList,
                                                               args.numberOfSimulations,
-                                                              args.epsilon)
+                                                              epsilon=0,
+                                                              playerToEpsilonDict={playerList[0]: 0.0, playerList[1]: epsilon})
         validationPairWinnerIndexTsr = PairWinnerIndexTensor(validationPairWinnerIndexList)
 
         # Forward pass
@@ -287,6 +326,20 @@ def main():
             str(epoch) + ',' + str(trainingLoss.item()) + ',' + str(validationLoss.item()) + ',' + str(
                 winRate - lossRate) + ',' + str(
                 winRate) + ',' + str(drawRate) + ',' + str(lossRate) + '\n')
+
+        # Write validation latent representations
+        logging.info("Validation latent representation...")
+        validationLatentRepresentation1Tsr = decoderClassifier.DecodingLatentRepresentation(decodingLayerNdx=1, inputTsr=validationStartingPositionsTensor)
+        # validationLatentRepresentation1Tsr.shape = torch.Size([ 2 * numberOfPositionsForValidation, decoderClassifier.decodingIntermediateNumberOfNeurons ])
+        #validationLatentRepresentation1FlatArr = validationLatentRepresentation1Tsr.reshape(-1).detach().numpy()
+        #numpy.savetxt(latentRepresentationFile, [validationLatentRepresentation1FlatArr], delimiter=',')
+        validationLatentRepresentation1Arr = validationLatentRepresentation1Tsr.detach().numpy()
+        pcaModel = PCAModel.PCAModel(validationLatentRepresentation1Arr, pca_zero_threshold)
+        pcaModel.TruncateModel(2)
+        validationProjections = pcaModel.Project(validationLatentRepresentation1Arr)
+        numpy.savetxt(latentRepresentationFile, [validationProjections.flatten()], delimiter=',')
+
+
         if epoch % 10 == 0:
             filepath = os.path.join(args.outputDirectory, 'tictactoe_' + str(epoch) + '.bin')
             decoderClassifier.Save(filepath)
@@ -296,10 +349,7 @@ def main():
                 authority.Display(position)
                 print(".............\n")
 
-        if epoch % 100 == 0:
-            learningRate = learningRate/3
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = learningRate
+
 
 if __name__ == '__main__':
     main()
