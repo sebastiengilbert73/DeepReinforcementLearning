@@ -38,7 +38,8 @@ class DecoderClassifier(Comparison.Comparator,
                                                     self.decodingIntermediateNumberOfNeurons)
         self.decodingLinearLayer8 = torch.nn.Linear(self.decodingIntermediateNumberOfNeurons, 2)
 
-        #self.instancenorm = torch.nn.InstanceNorm1d(num_features = self.decodingIntermediateNumberOfNeurons)
+        self.batchnorm = torch.nn.BatchNorm1d(num_features = self.decodingIntermediateNumberOfNeurons)
+        self.dropout = torch.nn.Dropout(p=0.1)
 
     def LatentVariables(self, positionBatch):
         minibatchSize = positionBatch.shape[0]
@@ -50,29 +51,41 @@ class DecoderClassifier(Comparison.Comparator,
 
         return latentVariablesTensor
 
-    def forward(self, inputTensor):
+    def ConcatenatedLatentVariables(self, inputTensor):
         if inputTensor.shape[1] != 2 * self.inputTensorShape[0]:
+            raise ValueError("ConcatenatedLatentVariables(): The input tensor shape number of channels ({}) is not 2 * self.inputTensorShape[0] ({})".format(inputTensor.shape[1], 2 * self.inputTensorShape[0]))
+        latentVariablesTsr0 = self.LatentVariables(inputTensor[:, 0: self.inputTensorShape[0], :, :, :])
+        latentVariablesTsr1 = self.LatentVariables(inputTensor[:, self.inputTensorShape[0]: , :, :, :])
+        concatenatedLatentVariablesTsr = torch.cat([latentVariablesTsr0, latentVariablesTsr1], dim=1)
+        return concatenatedLatentVariablesTsr
+
+    def forward(self, inputTensor):
+        """if inputTensor.shape[1] != 2 * self.inputTensorShape[0]:
             raise ValueError("forward(): The input tensor shape number of channels ({}) is not 2 * self.inputTensorShape[0] ({})".format(inputTensor.shape[1], 2 * self.inputTensorShape[0]))
         latentVariablesTsr0 = self.LatentVariables(inputTensor[:, 0: self.inputTensorShape[0], :, :, :])
         latentVariablesTsr1 = self.LatentVariables(inputTensor[:, self.inputTensorShape[0]: , :, :, :])
         latentVariablesTsr = torch.cat([latentVariablesTsr0, latentVariablesTsr1], dim=1)
+        """
+        latentVariablesTsr = self.ConcatenatedLatentVariables(inputTensor)
         #print ("forward(): latentVariablesTsr0.shape = {}".format(latentVariablesTsr0.shape))
         #print ("forward(): latentVariablesTsr1.shape = {}".format(latentVariablesTsr1.shape))
         #print ("forward(): latentVariablesTsr.shape = {}".format(latentVariablesTsr.shape))
         activationTsr = torch.nn.functional.relu(self.decodingLinearLayer1(latentVariablesTsr))
-        #activationTsr = self.instancenorm(activationTsr)
+        #activationTsr = self.batchnorm(activationTsr)
         activationTsr = torch.nn.functional.relu(self.decodingLinearLayer2(activationTsr))
-        #activationTsr = self.instancenorm(activationTsr)
+        #activationTsr = self.batchnorm(activationTsr)
         activationTsr = torch.nn.functional.relu(self.decodingLinearLayer3(activationTsr))
-        #activationTsr = self.instancenorm(activationTsr)
+        activationTsr = self.dropout(activationTsr)
+        activationTsr = self.batchnorm(activationTsr)
         activationTsr = torch.nn.functional.relu(self.decodingLinearLayer4(activationTsr))
-        #activationTsr = self.instancenorm(activationTsr)
+        #activationTsr = self.batchnorm(activationTsr)
         activationTsr = torch.nn.functional.relu(self.decodingLinearLayer5(activationTsr))
-        #activationTsr = self.instancenorm(activationTsr)
+        #activationTsr = self.batchnorm(activationTsr)
         activationTsr = torch.nn.functional.relu(self.decodingLinearLayer6(activationTsr))
-        #activationTsr = self.instancenorm(activationTsr)
+        activationTsr = self.dropout(activationTsr)
+        activationTsr = self.batchnorm(activationTsr)
         activationTsr = torch.nn.functional.relu(self.decodingLinearLayer7(activationTsr))
-        #activationTsr = self.instancenorm(activationTsr)
+        #activationTsr = self.batchnorm(activationTsr)
         outputTsr = torch.sigmoid( self.decodingLinearLayer8(activationTsr) )
         return outputTsr
 
@@ -92,11 +105,21 @@ class DecoderClassifier(Comparison.Comparator,
                 return position1
 
     def Gradient0(self):
-        return self.decodingLinearLayer1.weights.grad
+        return self.decodingLinearLayer1.weight.grad
 
     def Gradient0AbsMean(self):
         gradient0 = self.Gradient0()
         return gradient0.abs().mean().item()
+
+    def DecodingLatentRepresentation(self, decodingLayerNdx, inputTsr):
+        if decodingLayerNdx == 1:
+            concatenatedLatentVariablesTsr = self.ConcatenatedLatentVariables(inputTsr)
+            activationTsr = torch.nn.functional.relu(self.decodingLinearLayer1(concatenatedLatentVariablesTsr))
+            return activationTsr
+
+        else:
+            raise NotImplementedError("DecodingLatentRepresentation(): Layer {} is not implemented".format(decodingLayerNdx))
+
 
 
 def BuildADecoderClassifierFromAnAutoencoder(autoencoderNet):
