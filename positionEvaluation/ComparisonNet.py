@@ -13,6 +13,7 @@ class DecoderClassifier(Comparison.Comparator,
                  encodingBodyActivationNumberOfEntries=64,  # Obtained from an autoencoder
                  encodingFullyConnectedLayer=None,  # Obtained from an autoencoder
                  numberOfLatentVariables=100,  # Obtained from an autoencoder
+                 dropoutRatio=0.1,
                  ):
         super(DecoderClassifier, self).__init__()
         self.inputTensorShape = inputTensorShape
@@ -39,7 +40,7 @@ class DecoderClassifier(Comparison.Comparator,
         self.decodingLinearLayer8 = torch.nn.Linear(self.decodingIntermediateNumberOfNeurons, 2)
 
         self.batchnorm = torch.nn.BatchNorm1d(num_features = self.decodingIntermediateNumberOfNeurons)
-        self.dropout = torch.nn.Dropout(p=0.1)
+        self.dropout = torch.nn.Dropout(p=dropoutRatio)
 
     def LatentVariables(self, positionBatch):
         minibatchSize = positionBatch.shape[0]
@@ -67,25 +68,17 @@ class DecoderClassifier(Comparison.Comparator,
         latentVariablesTsr = torch.cat([latentVariablesTsr0, latentVariablesTsr1], dim=1)
         """
         latentVariablesTsr = self.ConcatenatedLatentVariables(inputTensor)
-        #print ("forward(): latentVariablesTsr0.shape = {}".format(latentVariablesTsr0.shape))
-        #print ("forward(): latentVariablesTsr1.shape = {}".format(latentVariablesTsr1.shape))
-        #print ("forward(): latentVariablesTsr.shape = {}".format(latentVariablesTsr.shape))
         activationTsr = torch.nn.functional.relu(self.decodingLinearLayer1(latentVariablesTsr))
-        #activationTsr = self.batchnorm(activationTsr)
         activationTsr = torch.nn.functional.relu(self.decodingLinearLayer2(activationTsr))
-        #activationTsr = self.batchnorm(activationTsr)
         activationTsr = torch.nn.functional.relu(self.decodingLinearLayer3(activationTsr))
         activationTsr = self.dropout(activationTsr)
         activationTsr = self.batchnorm(activationTsr)
         activationTsr = torch.nn.functional.relu(self.decodingLinearLayer4(activationTsr))
-        #activationTsr = self.batchnorm(activationTsr)
         activationTsr = torch.nn.functional.relu(self.decodingLinearLayer5(activationTsr))
-        #activationTsr = self.batchnorm(activationTsr)
         activationTsr = torch.nn.functional.relu(self.decodingLinearLayer6(activationTsr))
         activationTsr = self.dropout(activationTsr)
         activationTsr = self.batchnorm(activationTsr)
         activationTsr = torch.nn.functional.relu(self.decodingLinearLayer7(activationTsr))
-        #activationTsr = self.batchnorm(activationTsr)
         outputTsr = torch.sigmoid( self.decodingLinearLayer8(activationTsr) )
         return outputTsr
 
@@ -116,13 +109,63 @@ class DecoderClassifier(Comparison.Comparator,
             concatenatedLatentVariablesTsr = self.ConcatenatedLatentVariables(inputTsr)
             activationTsr = torch.nn.functional.relu(self.decodingLinearLayer1(concatenatedLatentVariablesTsr))
             return activationTsr
-
+        elif decodingLayerNdx == 2:
+            activationTsr = self.DecodingLatentRepresentation(1, inputTsr)
+            activationTsr = torch.nn.functional.relu(self.decodingLinearLayer2(activationTsr))
+            return activationTsr
+        elif decodingLayerNdx == 3:
+            activationTsr = self.DecodingLatentRepresentation(2, inputTsr)
+            activationTsr = torch.nn.functional.relu(self.decodingLinearLayer3(activationTsr))
+            activationTsr = self.dropout(activationTsr)
+            activationTsr = self.batchnorm(activationTsr)
+            return activationTsr
+        elif decodingLayerNdx == 4:
+            activationTsr = self.DecodingLatentRepresentation(3, inputTsr)
+            activationTsr = torch.nn.functional.relu(self.decodingLinearLayer4(activationTsr))
+            return activationTsr
+        elif decodingLayerNdx == 5:
+            activationTsr = self.DecodingLatentRepresentation(4, inputTsr)
+            activationTsr = torch.nn.functional.relu(self.decodingLinearLayer5(activationTsr))
+            return activationTsr
+        elif decodingLayerNdx == 6:
+            activationTsr = self.DecodingLatentRepresentation(5, inputTsr)
+            activationTsr = torch.nn.functional.relu(self.decodingLinearLayer6(activationTsr))
+            activationTsr = self.dropout(activationTsr)
+            activationTsr = self.batchnorm(activationTsr)
+            return activationTsr
+        elif decodingLayerNdx == 7:
+            activationTsr = self.DecodingLatentRepresentation(6, inputTsr)
+            activationTsr = torch.nn.functional.relu(self.decodingLinearLayer7(activationTsr))
+            return activationTsr
+        elif decodingLayerNdx == 8:
+            activationTsr = self.DecodingLatentRepresentation(7, inputTsr)
+            activationTsr = torch.sigmoid(self.decodingLinearLayer8(activationTsr))
+            return activationTsr
         else:
             raise NotImplementedError("DecodingLatentRepresentation(): Layer {} is not implemented".format(decodingLayerNdx))
 
+    def DecodingLayer(self, layerNdx):
+        if layerNdx == 1:
+            return self.decodingLinearLayer1
+        elif layerNdx == 2:
+            return self.decodingLinearLayer2
+        elif layerNdx == 3:
+            return self.decodingLinearLayer3
+        elif layerNdx == 4:
+            return self.decodingLinearLayer4
+        elif layerNdx == 5:
+            return self.decodingLinearLayer5
+        elif layerNdx == 6:
+            return self.decodingLinearLayer6
+        elif layerNdx == 7:
+            return self.decodingLinearLayer7
+        elif layerNdx == 8:
+            return self.decodingLinearLayer8
+        else:
+            raise NotImplementedError("DecodingLayer(): Did not implement layer {}".format(layerNdx))
 
 
-def BuildADecoderClassifierFromAnAutoencoder(autoencoderNet):
+def BuildADecoderClassifierFromAnAutoencoder(autoencoderNet, dropoutRatio):
     encodingBodyStructureSeq, encodingFullyConnectedLayer = autoencoderNet.EncodingLayers()
     positionTensorShape, bodyActivationNumberOfEntries, numberOfLatentVariables, bodyStructureList = autoencoderNet.Shapes()
     decoderClassifier = DecoderClassifier(
@@ -132,6 +175,7 @@ def BuildADecoderClassifierFromAnAutoencoder(autoencoderNet):
         encodingBodyActivationNumberOfEntries=bodyActivationNumberOfEntries,  # Obtained from an autoencoder
         encodingFullyConnectedLayer=encodingFullyConnectedLayer,  # Obtained from an autoencoder
         numberOfLatentVariables=numberOfLatentVariables,  # Obtained from an autoencoder
+        dropoutRatio=dropoutRatio
         )
     return decoderClassifier
 
