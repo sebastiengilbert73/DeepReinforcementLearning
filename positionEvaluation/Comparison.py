@@ -3,6 +3,7 @@ import numpy
 import random
 import utilities
 import pickle
+import torch
 
 
 class Comparator(abc.ABC):
@@ -31,10 +32,11 @@ def Load(filepath):
 def TournamentWinner(comparator, positionsList):
     if len(positionsList) < 1:
         raise ValueError("TournamentWinner(): The list of positions is empty")
-    remainingPositionsList = random.sample(positionsList, len(positionsList))
+    #remainingPositionsList = random.sample(positionsList, len(positionsList))
+    remainingPositionsList = positionsList
     while (len(remainingPositionsList) > 1):
         # Shuffle the positions
-        remainingPositionsList = random.sample(remainingPositionsList, len(remainingPositionsList))
+        #remainingPositionsList = random.sample(remainingPositionsList, len(remainingPositionsList))
         numberOfWholePairs = int(len(remainingPositionsList)/2)
         winnersList = []
         for duelNdx in range(numberOfWholePairs):
@@ -88,6 +90,7 @@ def SimulateAGame(comparator, gameAuthority, startingPosition=None, nextPlayer=N
                     chosenPosition = legalPositionWinnerPair[0]
             if chosenPosition is None:
                 chosenPosition = TournamentWinner(comparator, candidatePositionsList)
+                #print ("Comparison.SimulateAGame(): chosenPosition = {}".format(chosenPosition))
 
             for positionWinnerPair in legalCandidatePositionsAfterMoveList:
                 if chosenPosition is positionWinnerPair[0]:
@@ -247,6 +250,34 @@ class IntegerComparator(Comparator):
             return int0
         else:
             return int1
+
+class ComparatorsEnsemble(Comparator):
+    def __init__(self,
+                 comparatorsList):
+        self.comparatorsList = comparatorsList
+
+    def BestPosition(self, position0, position1):
+        votesForPosition0 = 0
+        votesForPosition1 = 0
+        for comparator in self.comparatorsList:
+            comparators_bestPosition = comparator.BestPosition(position0, position1)
+            if torch.equal(comparators_bestPosition, position0):
+                votesForPosition0 += 1
+            elif torch.equal(comparators_bestPosition, position1):
+                votesForPosition1 += 1
+            else:
+                raise ValueError("ComparatorsEnsemble.BestPosition(): The best position returned by a comparator ({}) is not position0 nor position1".format(comparators_bestPosition))
+        if votesForPosition0 > votesForPosition1:
+            return position0
+        elif votesForPosition1 > votesForPosition0:
+            return position1
+        else: # Draw
+            if numpy.random.random() < 0.5:
+                return position0
+            else:
+                return position1
+
+
 
 def main():
     print ("Comparison.py main()")
