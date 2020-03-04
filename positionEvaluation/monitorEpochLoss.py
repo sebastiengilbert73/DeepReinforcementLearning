@@ -15,6 +15,7 @@ def animate(i):
     epochs = []
     trainingLossList = []
     validationLossList = []
+    validationAccuracyList = []
     averageRewardList = []
     winRateList = []
     drawRateList = []
@@ -24,7 +25,7 @@ def animate(i):
     for lineNdx in range (1, len(lines)):
         line = lines[lineNdx]
         if len(line) > 1 :
-            epoch, trainingLoss, validationLoss, averageReward, winRate, drawRate, lossRate = \
+            epoch, trainingLoss, validationLoss, validationAccuracy, averageReward, winRate, drawRate, lossRate = \
              line.split(',')
             epochs.append(int(epoch))
             try:
@@ -35,6 +36,11 @@ def animate(i):
                 validationLossList.append(float(validationLoss))
             except ValueError:
                 validationLossList.append(None)
+            try:
+                validationAccuracyList.append(float(validationAccuracy))
+            except:
+                validationAccuracyList.append(None)
+
             averageRewardList.append(float(averageReward))
             winRateList.append(float(winRate))
             drawRateList.append(float(drawRate))
@@ -44,12 +50,13 @@ def animate(i):
     plt.ylim((0, 1.0))
     ax1.plot(epochs, trainingLossList, label=headers[1])
     ax1.plot(epochs, validationLossList, label=headers[2])
-    ax1.plot(epochs, averageRewardList, label=headers[3])
-    ax1.plot(epochs, winRateList, label=headers[4])
-    ax1.plot(epochs, drawRateList, label=headers[5])
-    ax1.plot(epochs, lossRateList, label=headers[6])
+    ax1.plot(epochs, validationAccuracyList, label=headers[3])
+    ax1.plot(epochs, averageRewardList, label=headers[4])
+    ax1.plot(epochs, winRateList, label=headers[5])
+    ax1.plot(epochs, drawRateList, label=headers[6])
+    ax1.plot(epochs, lossRateList, label=headers[7], c='fuchsia')
 
-    ax1.legend(shadow=True, fancybox=True)
+    ax1.legend(shadow=True, fancybox=True, loc='upper left')
 
 ani = animation.FuncAnimation(fig, animate, interval=1000)
 plt.show()
