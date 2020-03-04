@@ -247,6 +247,16 @@ def LegalCandidatePositionsAfterMove(gameAuthority, positionTensor, nextPlayer):
         legalCandidatePositionsAfterMove.append((candiatePositionTensor, winner))
     return legalCandidatePositionsAfterMove
 
+def LegalCandidatePositionsAfterMoveDictionary(gameAuthority, positionTensor, nextPlayer):
+    legalMovesTensorList = LegalMoveTensorsList(gameAuthority, positionTensor, nextPlayer)
+    legalCandidatePositionsAfterMoveToWinnerDict = {}
+    for legalMoveTsr in legalMovesTensorList:
+        (candidatePositionTensor, winner) = gameAuthority.Move(positionTensor, nextPlayer, legalMoveTsr)
+        legalCandidatePositionsAfterMoveToWinnerDict[candidatePositionTensor] = winner
+        #print ("LegalCandidatePositionsAfterMoveDictionary(): candidatePositionTensor.shape = {}".format(candidatePositionTensor.shape))
+    #print ("LegalCandidatePositionsAfterMoveDictionary(): legalCandidatePositionsAfterMoveToWinnerDict = {}".format(legalCandidatePositionsAfterMoveToWinnerDict))
+    return legalCandidatePositionsAfterMoveToWinnerDict
+
 if __name__ == '__main__':
     import checkers
 
