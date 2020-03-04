@@ -92,16 +92,18 @@ class Net(torch.nn.Module):
 
 
     def forward(self, inputTensor):
+        """
         minibatchSize = inputTensor.shape[0]
-
         activationTensor = inputTensor
         activationTensor = self.bodyStructureSeq(activationTensor)
         activationTensor = activationTensor.view(minibatchSize, self.bodyActivationNumberOfEntries)
         activationTensor = self.fullyConnectedLayer(activationTensor)
         activationTensor = self.ReLU(activationTensor)
+        """
+        encodedTsr = self.Encode(inputTensor)
 
         # Decoding
-        activationTensor = self.decodingLinear1 (activationTensor)
+        """activationTensor = self.decodingLinear1 (activationTensor)
         activationTensor = self.ReLU(activationTensor)
         activationTensor = self.decodingLinear2(activationTensor)
         activationTensor = activationTensor.view(minibatchSize, self.positionTensorShape[0] , \
@@ -109,6 +111,30 @@ class Net(torch.nn.Module):
                                                 self.positionTensorShape[3])
         return activationTensor # No Sigmoid: If an entry is negative in this activation tensor, the corresponding
                                 # entry in the high level tensor will be a 0. Otherwise, it will be a 1. Cf. ConvertToOneHotPositionTensor(*)
+        """
+        return self.Decode(encodedTsr)
+
+    def Encode(self, inputTensor):
+        minibatchSize = inputTensor.shape[0]
+
+        activationTensor = inputTensor
+        activationTensor = self.bodyStructureSeq(activationTensor)
+        activationTensor = activationTensor.view(minibatchSize, self.bodyActivationNumberOfEntries)
+        activationTensor = self.fullyConnectedLayer(activationTensor)
+        activationTensor = self.ReLU(activationTensor)
+        return activationTensor
+
+    def Decode(self, encodedTsr):
+        minibatchSize = encodedTsr.shape[0]
+        activationTensor = self.decodingLinear1(encodedTsr)
+        activationTensor = self.ReLU(activationTensor)
+        activationTensor = self.decodingLinear2(activationTensor)
+        activationTensor = activationTensor.view(minibatchSize, self.positionTensorShape[0], \
+                                                 self.positionTensorShape[1], self.positionTensorShape[2], \
+                                                 self.positionTensorShape[3])
+        return activationTensor  # No Sigmoid: If an entry is negative in this activation tensor, the corresponding
+        # entry in the high level tensor will be a 0. Otherwise, it will be a 1. Cf. ConvertToOneHotPositionTensor(*)
+
 
     def Save(self, directory, filenameSuffix):
         filename = 'AutoencoderNet_' + str(self.positionTensorShape) + '_' + \
