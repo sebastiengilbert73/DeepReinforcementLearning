@@ -4,15 +4,34 @@ import collections # OrderedDict
 import utilities
 import pickle
 import numpy
+import abc
+
+class Regressor(abc.ABC):
+    """
+    Abstract class that predicts the win rates, when it is the opponent's turn
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    @abc.abstractmethod
+    def WinRates(self, positionEncoding):
+        pass  # Predict (winRate0, drawRate, winRate1)
+
+    def Save(self, filepath):
+        binary_file = open(filepath, mode='wb')
+        pickle.dump(self, binary_file)
+        binary_file.close()
 
 
-class Regressor(torch.nn.Module):
+class Net(Regressor,
+          torch.nn.Module):
     def __init__(self,
                  inputNumberOfAttributes=16,
                  bodyStructureList=[8, 4, 3],
                  dropoutRatio=0.1,
                  ):
-        super(Regressor, self).__init__()
+        super(Net, self).__init__()
         self.inputNumberOfAttributes = inputNumberOfAttributes
         self.bodyStructureList = bodyStructureList
         self.dropoutRatio = dropoutRatio
@@ -48,10 +67,14 @@ class Regressor(torch.nn.Module):
         clampedOutputTsr = torch.nn.functional.normalize(clampedOutputTsr, p=1, dim=1)
         return clampedOutputTsr
 
-    def Save(self, filepath):
-        binary_file = open(filepath, mode='wb')
-        pickle.dump(self, binary_file)
-        binary_file.close()
+    def WinRates(self, positionEncoding):
+        outputTsr = self.forward(positionEncoding.unsqueeze(0))
+        winRate0 = outputTsr[0][0].item()
+        drawRate = outputTsr[0][1].item()
+        winRate1 = outputTsr[0][2].item()
+        return (winRate0, drawRate, winRate1)
+
+
 
 
 
@@ -91,13 +114,15 @@ def SimulateGamesAgainstARandomPlayer(regressor, encoder, gameAuthority, numberO
                 chosenPosition = None
                 for candidatePosition, candidateWinner in positionAfterMoveToWinnerDict.items():
                     encoding = encoder.Encode(candidatePosition.unsqueeze(0))
-                    encodingOutputTsr = regressor(encoding.unsqueeze(0)).squeeze()
-                    winRate, drawRate, lossRate = encodingOutputTsr[0], encodingOutputTsr[1], encodingOutputTsr[2]
+                    #encodingOutputTsr = regressor(encoding.unsqueeze(0)).squeeze()
+                    #winRate, drawRate, lossRate = encodingOutputTsr[0], encodingOutputTsr[1], encodingOutputTsr[2]
+                    (winRate, drawRate, lossRate) = regressor.WinRates(encoding.squeeze())
                     reward = winRate - lossRate
-                    if candidateWinner == playersList[0] or reward > highestReward:
+                    if candidateWinner == playersList[0] or (candidateWinner is not playersList[0] and reward > highestReward):
                         highestReward = reward
                         chosenPosition = candidatePosition
-
+                if chosenPosition is None:
+                    raise ValueError("SimulateGamesAgainstARandomPlayer(): chosenPosition is None... positionAfterMoveToWinnerDict = {}".format(positionAfterMoveToWinnerDict))
                 currentPosition = chosenPosition
                 winner = positionAfterMoveToWinnerDict[chosenPosition]
 
@@ -160,10 +185,11 @@ def SimulateAGame(regressor, encoder, gameAuthority, startingPosition=None, next
                     chosenPosition = legalPositionWinnerPair[0]
                 """
                 encoding = encoder.Encode(candidatePosition.unsqueeze(0))
-                encodingOutputTsr = regressor(encoding.unsqueeze(0)).squeeze()
-                winRate, drawRate, lossRate = encodingOutputTsr[0], encodingOutputTsr[1], encodingOutputTsr[2]
+                #encodingOutputTsr = regressor(encoding.unsqueeze(0)).squeeze()
+                #winRate, drawRate, lossRate = encodingOutputTsr[0], encodingOutputTsr[1], encodingOutputTsr[2]
+                (winRate, drawRate, lossRate) = regressor.WinRates(encoding.squeeze())
                 reward = winRate - lossRate
-                if candidateWinner == playersList[0] or reward > highestReward:
+                if candidateWinner == playersList[0] or (candidateWinner is not playersList[0] and reward > highestReward):
                     highestReward = reward
                     chosenPosition = candidatePosition
 
@@ -190,10 +216,10 @@ def SimulateAGame(regressor, encoder, gameAuthority, startingPosition=None, next
 
 if __name__ == '__main__':
     print("winRatesRegression.py __main__")
-    regressor = Regressor(16, [8, 4, 3], dropoutRatio=0.1)
+    regressor = Net(10, [8, 4, 3], dropoutRatio=0.1)
     print ("regressor = {}".format(regressor))
 
-    inputTsr = torch.randn(14, 16)
+    inputTsr = torch.randn(14, 10)
     outputTsr = regressor(inputTsr)
     print ("outputTsr = {}".format(outputTsr))
     print ("outputTsr.shape = {}".format(outputTsr.shape))
@@ -202,6 +228,6 @@ if __name__ == '__main__':
     import autoencoder.position
     authority = tictactoe.Authority()
     encoder = autoencoder.position.Net()
-    encoder.Load('/home/sebastien/projects/DeepReinforcementLearning/autoencoder/outputs/AutoencoderNet_(2,1,3,3)_[(3,128,1)]_16_noZeroPadding_tictactoeAutoencoder_138.pth')
+    encoder.Load('/home/sebastien/projects/DeepReinforcementLearning/autoencoder/outputs/AutoencoderNet_(2,1,3,3)_[(2,128,1),(2,128,1)]_10_noZeroPadding_tictactoeAutoencoder_115.pth')
     (numberOfWinsForRegressor, numberOfWinsForRandomPlayer, numberOfDraws) = SimulateGamesAgainstARandomPlayer(regressor, encoder, authority, 100, None)
     print ("numberOfWinsForRegressor = {}; numberOfWinsForRandomPlayer = {}; numberOfDraws = {}".format(numberOfWinsForRegressor, numberOfWinsForRandomPlayer, numberOfDraws))
