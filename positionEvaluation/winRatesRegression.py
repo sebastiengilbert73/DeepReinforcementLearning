@@ -107,18 +107,17 @@ def SimulateGamesAgainstARandomPlayer(regressor, encoder, gameAuthority, numberO
                 if nextPlayer == playersList[1]:
                     currentPosition = gameAuthority.SwapPositions(currentPosition, playersList[0], playersList[1])
 
-                #legalMovesList = utilities.LegalMoveTensorsList(gameAuthority, currentPosition, playersList[0])
                 positionAfterMoveToWinnerDict = utilities.LegalCandidatePositionsAfterMoveDictionary(gameAuthority, currentPosition, playersList[0])
-                #candidatePositionsList = [positionWinnerPair[0] for positionWinnerPair in positionAfterMoveWinnerPairList]
                 highestReward = -2.0
                 chosenPosition = None
                 for candidatePosition, candidateWinner in positionAfterMoveToWinnerDict.items():
                     encoding = encoder.Encode(candidatePosition.unsqueeze(0))
-                    #encodingOutputTsr = regressor(encoding.unsqueeze(0)).squeeze()
-                    #winRate, drawRate, lossRate = encodingOutputTsr[0], encodingOutputTsr[1], encodingOutputTsr[2]
                     (winRate, drawRate, lossRate) = regressor.WinRates(encoding.squeeze())
                     reward = winRate - lossRate
-                    if candidateWinner == playersList[0] or (candidateWinner is not playersList[0] and reward > highestReward):
+                    if candidateWinner == playersList[0]:
+                        highestReward = 1.0
+                        chosenPosition = candidatePosition
+                    elif reward > highestReward:
                         highestReward = reward
                         chosenPosition = candidatePosition
                 if chosenPosition is None:
@@ -180,16 +179,13 @@ def SimulateAGame(regressor, encoder, gameAuthority, startingPosition=None, next
             highestReward = -2.0
             chosenPosition = None
             for candidatePosition, candidateWinner in positionAfterMoveToWinnerDict.items():
-                """candidatePositionsList.append(legalPositionWinnerPair[0])
-                if legalPositionWinnerPair[1] == playersList[0]:
-                    chosenPosition = legalPositionWinnerPair[0]
-                """
                 encoding = encoder.Encode(candidatePosition.unsqueeze(0))
-                #encodingOutputTsr = regressor(encoding.unsqueeze(0)).squeeze()
-                #winRate, drawRate, lossRate = encodingOutputTsr[0], encodingOutputTsr[1], encodingOutputTsr[2]
                 (winRate, drawRate, lossRate) = regressor.WinRates(encoding.squeeze())
                 reward = winRate - lossRate
-                if candidateWinner == playersList[0] or (candidateWinner is not playersList[0] and reward > highestReward):
+                if candidateWinner == playersList[0]:
+                    highestReward = 1.0
+                    chosenPosition = candidatePosition
+                elif reward > highestReward:
                     highestReward = reward
                     chosenPosition = candidatePosition
 
@@ -212,6 +208,49 @@ def SimulateAGame(regressor, encoder, gameAuthority, startingPosition=None, next
             nextPlayer = playersList[0]
     return positionsList, winner
 
+def SimulateRandomGames(authority, encoder, minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions,
+                        numberOfPositions, swapIfOddNumberOfMoves=False):
+    playersList = authority.PlayersList()
+    selectedPositionsList = []
+    while len(selectedPositionsList) < numberOfPositions:
+        gamePositionsList, winner = SimulateAGame(
+            regressor=None, encoder=encoder, gameAuthority=authority, startingPosition=None, nextPlayer=None,
+            playerToEpsilonDict={playersList[0]: 1.0, playersList[1]: 1.0}) # With epsilon=1.0, the regressor will never be called
+        if len(gamePositionsList) >= minimumNumberOfMovesForInitialPositions:
+            maxNdx = min(maximumNumberOfMovesForInitialPositions - 1, len(gamePositionsList) - 2) # The last index cannot be the last position, since the game is over
+            if maxNdx < 0:
+                maxNdx = 0
+            selectedNdx = numpy.random.randint(minimumNumberOfMovesForInitialPositions, maxNdx + 1) # maxNdx can be selected: {0, 1, 2, ..., maxNdx}
+            if swapIfOddNumberOfMoves and selectedNdx %2 == 1:
+                selectedPositionsList.append(authority.SwapPositions( gamePositionsList[selectedNdx], playersList[0], playersList[1] ))
+            else:
+                selectedPositionsList.append(gamePositionsList[selectedNdx])
+    return selectedPositionsList
+
+
+
+
+class RegressorsEnsemble(Regressor):
+    def __init__(self,
+                 regressorsList):
+        self.regressorsList = regressorsList
+
+    def WinRates(self, positionEncoding):
+        winRate0Sum = 0
+        drawRateSum = 0
+        winRate1Sum = 0
+        numberOfRegressors = len(self.regressorsList)
+        for regressor in self.regressorsList:
+            (winRate0, drawRate, winRate1) = regressor.WinRates(positionEncoding)
+            winRate0Sum += winRate0
+            drawRateSum += drawRate
+            winRate1Sum += winRate1
+        winRate0 = winRate0Sum/numberOfRegressors
+        drawRate = drawRateSum/numberOfRegressors
+        winRate1 = winRate1Sum / numberOfRegressors
+        normalizationFactor = winRate0 + drawRate + winRate1
+
+        return (winRate0/normalizationFactor, drawRate/normalizationFactor, winRate1/normalizationFactor)
 
 
 if __name__ == '__main__':
