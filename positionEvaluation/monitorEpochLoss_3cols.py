@@ -34,7 +34,7 @@ def animate(i):
                 validationLossList.append(None)
 
     ax1.clear()
-    plt.ylim((0, 0.4))
+    plt.ylim((0, 0.15))
     ax1.plot(epochs, trainingLossList, label=headers[1])
     ax1.plot(epochs, validationLossList, label=headers[2])
 
