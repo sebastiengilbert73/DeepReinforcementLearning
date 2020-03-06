@@ -45,6 +45,7 @@ def GenerateRandomPositions(
         maximumNumberOfMoves
         ):
     positionsList = []
+    playersList = authority.PlayersList()
     while len(positionsList) < numberOfPositions:
         #maximumNumberOfMovesForThisSimulation = numpy.random.randint(minimumNumberOfMoves,
         #    maximumNumberOfMoves)
@@ -60,7 +61,10 @@ def GenerateRandomPositions(
         )
         if len(gamePositionsList) >= minimumNumberOfMoves:
             selectedNdx = numpy.random.randint(len(gamePositionsList))
-            positionsList.append(gamePositionsList[selectedNdx])  # Keep the selected position
+            selectedGame = gamePositionsList[selectedNdx]
+            if numpy.random.random() >= 0.5: # Swap 1/2 position
+                selectedGame = authority.SwapPositions(selectedGame, playersList[0], playersList[1])
+            positionsList.append(selectedGame)  # Keep the selected position
     return positionsList
 
 def main():
