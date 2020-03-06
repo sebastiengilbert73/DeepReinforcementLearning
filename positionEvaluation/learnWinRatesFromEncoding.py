@@ -103,7 +103,7 @@ def main():
         logging.info(" +++++++++++++++ Run {} +++++++++++++++".format(runNdx))
 
         # Create the neural network
-        regressor = winRatesRegression.Regressor(
+        regressor = winRatesRegression.Net(
             inputNumberOfAttributes=numberOfAttributes,
             bodyStructureList=neuralNetworkLayerSizesList,
             dropoutRatio=args.dropoutRatio
@@ -175,7 +175,7 @@ def main():
             logging.info ("numberOfWinsForRegressor = {}; numberOfWinsForRandomPlayer = {}; numberOfDraws = {}".format(
                 numberOfWinsForRegressor, numberOfWinsForRandomPlayer, numberOfDraws))
         # Save the neural network
-        regressor.Save(os.path.join(args.outputDirectory, 'regressor_' + str(runNdx) + '.bin'))
+        regressor.Save(os.path.join(args.outputDirectory, 'regressor_1_' + str(runNdx) + '.bin'))
 
 
 if __name__ == '__main__':
