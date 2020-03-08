@@ -16,6 +16,7 @@ parser.add_argument('netEnsembleFilepath', help='The filepath to save the ensemb
 parser.add_argument('--numberOfSimulationsPerPosition', help='For each starting position, the number of simulations. Default: 64', type=int, default=64)
 parser.add_argument('--epsilon', help='Epsilon (probability of a random move) for the simulations. Default: 0.5', type=float, default=0.5)
 parser.add_argument('--numberOfPositions', help='The number of positions to evaluate. Default: 1000', type=int, default=1000)
+parser.add_argument('--preAssembledEnsembleFilepath', help="If you want to use an already assembled ensemble (fo example, after filtering it), define this filepath. Default: 'None'", default='None')
 args = parser.parse_args()
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(message)s')
@@ -30,20 +31,24 @@ def main():
 
     # Load the ensemble
     if args.epsilon < 1.0:
-        neuralNetworksDirectory = os.path.dirname(args.regressorEnsembleFilepath)
-        #print ("neuralNetworksDirectory = {}".format(neuralNetworksDirectory))
-        neuralNetworksFilenames = \
-            [filename for filename in os.listdir(neuralNetworksDirectory ) if filename.startswith( os.path.basename( args.regressorEnsembleFilepath) )]
-        #print ("neuralNetworksFilepaths = {}".format(neuralNetworksFilepaths))
-        neuralNetworksFilepaths = [os.path.join(neuralNetworksDirectory, filename) for filename in neuralNetworksFilenames]
-        #print ("neuralNetworksFilepaths = {}".format(neuralNetworksFilepaths))
+        if args.preAssembledEnsembleFilepath == 'None':
+            neuralNetworksDirectory = os.path.dirname(args.regressorEnsembleFilepath)
+            #print ("neuralNetworksDirectory = {}".format(neuralNetworksDirectory))
+            neuralNetworksFilenames = \
+                [filename for filename in os.listdir(neuralNetworksDirectory ) if filename.startswith( os.path.basename( args.regressorEnsembleFilepath) )]
+            #print ("neuralNetworksFilepaths = {}".format(neuralNetworksFilepaths))
+            neuralNetworksFilepaths = [os.path.join(neuralNetworksDirectory, filename) for filename in neuralNetworksFilenames]
+            #print ("neuralNetworksFilepaths = {}".format(neuralNetworksFilepaths))
 
-        neuralNetworksList = []
-        for filepath in neuralNetworksFilepaths:
-            neuralNet = winRatesRegression.Load(filepath)
-            neuralNetworksList.append(neuralNet)
-        netEnsemble = winRatesRegression.RegressorsEnsemble(neuralNetworksList)
-        netEnsemble.Save(args.netEnsembleFilepath)
+            neuralNetworksList = []
+            for filepath in neuralNetworksFilepaths:
+                neuralNet = winRatesRegression.Load(filepath)
+                neuralNetworksList.append(neuralNet)
+            netEnsemble = winRatesRegression.RegressorsEnsemble(neuralNetworksList)
+            netEnsemble.Save(args.netEnsembleFilepath)
+        else:
+            logging.info("Using pre-assembled ensemble {}".format(args.preAssembledEnsembleFilepath))
+            netEnsemble = winRatesRegression.Load(args.preAssembledEnsembleFilepath)
     else:
         netEnsemble = None
 
