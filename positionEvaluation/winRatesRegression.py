@@ -238,6 +238,78 @@ def SimulateRandomGames(authority, encoder, minimumNumberOfMovesForInitialPositi
                 selectedPositionsList.append(gamePositionsList[selectedNdx])
     return selectedPositionsList
 
+def CompetitionBetweenRegressors(regressor0, regressor1, gameAuthority, encoder, numberOfGames=100, epsilon=0.1):
+    playersList = gameAuthority.PlayersList()
+    numberOfWinsForRegressor0 = 0
+    numberOfDraws = 0
+    numberOfWinsForRegressor1 = 0
+
+    for gameNdx in range(numberOfGames):
+        regressor0Player = playersList[gameNdx % 2]
+        regressor1Player = playersList[(gameNdx + 1)% 2]
+
+        winner = None
+        currentPosition = gameAuthority.InitialPosition()
+        moveNdx = 0
+        positionsList = []
+        positionsList.append(currentPosition)
+        while winner is None:
+            nextPlayer = playersList[moveNdx % 2]
+            chosenMoveTensor = None
+            if nextPlayer == regressor0Player:
+                nextRegressor = regressor0
+            else:
+                nextRegressor = regressor1
+            if nextPlayer == playersList[1]:
+                currentPosition = gameAuthority.SwapPositions(currentPosition, playersList[0], playersList[1])
+
+            if numpy.random.rand() < epsilon:
+                chosenMoveTensor = utilities.ChooseARandomMove(currentPosition, playersList[0], gameAuthority)
+                currentPosition, winner = gameAuthority.Move(currentPosition, playersList[0], chosenMoveTensor)
+
+            else:
+
+                positionAfterMoveToWinnerDict = utilities.LegalCandidatePositionsAfterMoveDictionary(gameAuthority,
+                                                                                                     currentPosition,
+                                                                                                     playersList[0])
+                highestReward = -2.0
+                chosenPosition = None
+                for candidatePosition, candidateWinner in positionAfterMoveToWinnerDict.items():
+                    encoding = encoder.Encode(candidatePosition.unsqueeze(0))
+                    (winRate, drawRate, lossRate) = nextRegressor.WinRates(encoding.squeeze())
+                    reward = winRate - lossRate
+                    if candidateWinner == playersList[0]:
+                        highestReward = 1.0
+                        chosenPosition = candidatePosition
+                    elif reward > highestReward:
+                        highestReward = reward
+                        chosenPosition = candidatePosition
+                if chosenPosition is None:
+                    raise ValueError(
+                        "CompetitionBetweenRegressors(): chosenPosition is None... positionAfterMoveToWinnerDict = {}".format(
+                            positionAfterMoveToWinnerDict))
+                currentPosition = chosenPosition
+                winner = positionAfterMoveToWinnerDict[chosenPosition]
+
+            if nextPlayer == playersList[1]:  # De-swap, reverse the winner
+                currentPosition = gameAuthority.SwapPositions(currentPosition, playersList[0], playersList[1])
+                if winner == playersList[0]:
+                    winner = playersList[1]
+                elif winner == playersList[1]:
+                    winner = playersList[0]
+            positionsList.append(currentPosition)
+            #gameAuthority.Display(currentPosition)
+
+            moveNdx += 1
+
+        if winner == regressor0Player:
+            numberOfWinsForRegressor0 += 1
+        elif winner == 'draw':
+            numberOfDraws += 1
+        else:
+            numberOfWinsForRegressor1 += 1
+
+    return (numberOfWinsForRegressor0, numberOfDraws, numberOfWinsForRegressor1)
 
 
 
@@ -266,18 +338,14 @@ class RegressorsEnsemble(Regressor):
 
 if __name__ == '__main__':
     print("winRatesRegression.py __main__")
-    regressor = Net(10, [8, 4, 3], dropoutRatio=0.1)
-    print ("regressor = {}".format(regressor))
-
-    inputTsr = torch.randn(14, 10)
-    outputTsr = regressor(inputTsr)
-    print ("outputTsr = {}".format(outputTsr))
-    print ("outputTsr.shape = {}".format(outputTsr.shape))
-
     import tictactoe
     import autoencoder.position
     authority = tictactoe.Authority()
     encoder = autoencoder.position.Net()
     encoder.Load('/home/sebastien/projects/DeepReinforcementLearning/autoencoder/outputs/AutoencoderNet_(2,1,3,3)_[(2,128,1),(2,128,1)]_10_noZeroPadding_tictactoeAutoencoder_115.pth')
-    (numberOfWinsForRegressor, numberOfWinsForRandomPlayer, numberOfDraws) = SimulateGamesAgainstARandomPlayer(regressor, encoder, authority, 100, None)
-    print ("numberOfWinsForRegressor = {}; numberOfWinsForRandomPlayer = {}; numberOfDraws = {}".format(numberOfWinsForRegressor, numberOfWinsForRandomPlayer, numberOfDraws))
+    ensemble_0 = Load('/home/sebastien/projects/DeepReinforcementLearning/positionEvaluation/outputs/netEnsemble_3.bin')
+    ensemble_1 = Load('/home/sebastien/projects/DeepReinforcementLearning/positionEvaluation/outputs/eliteEnsemble_3.bin')
+
+    (numberOfWinsForRegressor0, numberOfDraws, numberOfWinsForRegressor1) = CompetitionBetweenRegressors(ensemble_0, ensemble_1,
+                                                                                                         authority, encoder, 100, 0.2)
+    print ("numberOfWinsForRegressor0 = {}; numberOfDraws = {}; numberOfWinsForRegressor1 = {}".format(numberOfWinsForRegressor0, numberOfDraws, numberOfWinsForRegressor1))
