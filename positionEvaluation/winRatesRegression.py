@@ -23,6 +23,17 @@ class Regressor(abc.ABC):
         pickle.dump(self, binary_file)
         binary_file.close()
 
+    def LegalCandidatePositionsAndEvaluations(self, positionTsr, encoder, gameAuthority):
+        playersList = gameAuthority.PlayersList()
+        legalCandidatePositionsAfterMoveToWinnerDict = utilities.LegalCandidatePositionsAfterMoveDictionary(gameAuthority, positionTsr, nextPlayer=playersList[0])
+        candidatePositionWinnerEvaluationsTuplesList = []
+        for candidatePosition, candidateWinner in legalCandidatePositionsAfterMoveToWinnerDict.items():
+            candidatePositionEncoding = encoder.Encode(candidatePosition.unsqueeze(0))
+            winRates = self.WinRates(candidatePositionEncoding.squeeze(0))
+            tuple3 = (candidatePosition, candidateWinner, winRates)
+            candidatePositionWinnerEvaluationsTuplesList.append(tuple3)
+        return candidatePositionWinnerEvaluationsTuplesList
+
 
 class Net(Regressor,
           torch.nn.Module):
