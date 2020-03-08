@@ -26,6 +26,7 @@ parser.add_argument('--neuralNetworkLayerSizesList', help="The list of layer siz
 parser.add_argument('--dropoutRatio', help='The dropout ratio. Default: 0.1', type=float, default=0.1)
 parser.add_argument('--numberOfGamesAgainstRandomPlayer', help='The number of games played against a random player. Default: 100', type=int, default=100)
 parser.add_argument('--numberOfRuns', help='The number of times the epochs are run. Default: 100', type=int, default=100)
+parser.add_argument('--stageIndex', help='The stage index for the saving filename of regressors. Default: 0', type=int, default=0)
 
 args = parser.parse_args()
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
@@ -175,7 +176,7 @@ def main():
             logging.info ("numberOfWinsForRegressor = {}; numberOfWinsForRandomPlayer = {}; numberOfDraws = {}".format(
                 numberOfWinsForRegressor, numberOfWinsForRandomPlayer, numberOfDraws))
         # Save the neural network
-        regressor.Save(os.path.join(args.outputDirectory, 'regressor_1_' + str(runNdx) + '.bin'))
+        regressor.Save(os.path.join(args.outputDirectory, 'regressor_' + str(args.stageIndex) + '_' + str(runNdx) + '.bin'))
 
 
 if __name__ == '__main__':
