@@ -171,10 +171,11 @@ def main():
             epochLossFile.write("{},{},{}\n".format(epoch, averageTrainigLoss, validationLoss))
 
             # ****************** Compare with a random player **************************
-            (numberOfWinsForRegressor, numberOfWinsForRandomPlayer, numberOfDraws) = winRatesRegression.SimulateGamesAgainstARandomPlayer(
-                regressor, autoencoderNet, authority, args.numberOfGamesAgainstRandomPlayer, None)
-            logging.info ("numberOfWinsForRegressor = {}; numberOfWinsForRandomPlayer = {}; numberOfDraws = {}".format(
-                numberOfWinsForRegressor, numberOfWinsForRandomPlayer, numberOfDraws))
+            if epoch % 10 == 1 or epoch == args.numberOfEpochs:
+                (numberOfWinsForRegressor, numberOfWinsForRandomPlayer, numberOfDraws) = winRatesRegression.SimulateGamesAgainstARandomPlayer(
+                    regressor, autoencoderNet, authority, args.numberOfGamesAgainstRandomPlayer, None)
+                logging.info ("numberOfWinsForRegressor = {}; numberOfWinsForRandomPlayer = {}; numberOfDraws = {}".format(
+                    numberOfWinsForRegressor, numberOfWinsForRandomPlayer, numberOfDraws))
         # Save the neural network
         regressor.Save(os.path.join(args.outputDirectory, 'regressor_' + str(args.stageIndex) + '_' + str(runNdx) + '.bin'))
 
