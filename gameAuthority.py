@@ -47,6 +47,11 @@ class GameAuthority(abc.ABC):
     def Display(self, positionTensor):
         pass
 
+    def DisplayGame(self, positionsList):
+        for position in positionsList:
+            self.Display(position)
+            print()
+
     @abc.abstractmethod
     def RaiseAnErrorIfNoLegalMove(self):
         pass
