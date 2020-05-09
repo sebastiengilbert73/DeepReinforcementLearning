@@ -343,8 +343,8 @@ if __name__ == '__main__':
     authority = tictactoe.Authority()
     encoder = autoencoder.position.Net()
     encoder.Load('/home/sebastien/projects/DeepReinforcementLearning/autoencoder/outputs/AutoencoderNet_(2,1,3,3)_[(2,128,1),(2,128,1)]_10_noZeroPadding_tictactoeAutoencoder_115.pth')
-    ensemble_0 = Load('/home/sebastien/projects/DeepReinforcementLearning/positionEvaluation/outputs/netEnsemble_3.bin')
-    ensemble_1 = Load('/home/sebastien/projects/DeepReinforcementLearning/positionEvaluation/outputs/eliteEnsemble_3.bin')
+    ensemble_0 = Load('/home/sebastien/projects/DeepReinforcementLearning/positionEvaluation/outputs/eliteEnsemble_4.bin')
+    ensemble_1 = Load('/home/sebastien/projects/DeepReinforcementLearning/positionEvaluation/outputs/eliteEnsemble_5.bin')
 
     (numberOfWinsForRegressor0, numberOfDraws, numberOfWinsForRegressor1) = CompetitionBetweenRegressors(ensemble_0, ensemble_1,
                                                                                                          authority, encoder, 100, 0.2)
