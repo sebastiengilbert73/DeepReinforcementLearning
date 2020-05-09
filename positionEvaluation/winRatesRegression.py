@@ -219,6 +219,13 @@ def SimulateAGame(regressor, encoder, gameAuthority, startingPosition=None, next
             nextPlayer = playersList[0]
     return positionsList, winner
 
+def SimulateMultipleGames(regressor, encoder, gameAuthority, startingPosition=None, nextPlayer=None, playerToEpsilonDict=None, numberOfGames=100):
+    gameListWinnerTupleList = []
+    for gameNdx in range(numberOfGames):
+        positionsList, winner = SimulateAGame(regressor, encoder, gameAuthority, startingPosition, nextPlayer, playerToEpsilonDict)
+        gameListWinnerTupleList.append((positionsList, winner))
+    return gameListWinnerTupleList
+
 def SimulateRandomGames(authority, encoder, minimumNumberOfMovesForInitialPositions, maximumNumberOfMovesForInitialPositions,
                         numberOfPositions, swapIfOddNumberOfMoves=False):
     playersList = authority.PlayersList()
